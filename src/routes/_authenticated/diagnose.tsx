@@ -2,15 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Car, ListChecks, Loader2, Save, Sparkles, Wrench } from "lucide-react";
+import { AlertTriangle, Car, ExternalLink, Image as ImageIcon, ListChecks, Loader2, Printer, Save, Sparkles, Wrench, Youtube, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { SeverityBadge } from "@/components/SeverityBadge";
 import { supabase } from "@/integrations/supabase/client";
-import { runDiagnosis, type DiagnosisResult } from "@/lib/diagnose.functions";
+import { runDiagnosis, explainStep, generateImage, type DiagnosisResult, type DiagStep } from "@/lib/diagnose.functions";
+import { useLocale, currencySymbol } from "@/lib/i18n";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/diagnose")({
@@ -18,11 +20,22 @@ export const Route = createFileRoute("/_authenticated/diagnose")({
   component: DiagnosePage,
 });
 
-const TAGS = ["Strange noise", "Warning light", "Poor performance", "Overheating", "Won't start", "Leak", "Vibration", "Smoke"];
+const TAG_KEYS = [
+  ["noise", "tags.noise"], ["warning", "tags.warning"], ["perf", "tags.perf"], ["over", "tags.over"],
+  ["start", "tags.start"], ["leak", "tags.leak"], ["vib", "tags.vib"], ["smoke", "tags.smoke"],
+] as const;
+
+function shopUrl(q: string) {
+  return `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(q)}`;
+}
+function youtubeUrl(q: string) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}
 
 function DiagnosePage() {
   const { user } = Route.useRouteContext();
   const qc = useQueryClient();
+  const { t, language, region, currency } = useLocale();
   const profileQ = useQuery({
     queryKey: ["profile", user.id],
     queryFn: async () => {
@@ -38,6 +51,11 @@ function DiagnosePage() {
   const [symptoms, setSymptoms] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [result, setResult] = useState<DiagnosisResult | null>(null);
+  const [vehicleImg, setVehicleImg] = useState<string | null>(null);
+  const [stepImgs, setStepImgs] = useState<Record<number, string>>({});
+  const [stepLoading, setStepLoading] = useState<Record<number, boolean>>({});
+  const [stepDetails, setStepDetails] = useState<Record<number, string>>({});
+  const [stepDetailLoading, setStepDetailLoading] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     const p = profileQ.data;
@@ -50,12 +68,25 @@ function DiagnosePage() {
   }, [profileQ.data]);
 
   const diagnose = useServerFn(runDiagnosis);
+  const explain = useServerFn(explainStep);
+  const genImg = useServerFn(generateImage);
 
   const mutation = useMutation({
     mutationFn: async () => {
-      return await diagnose({ data: { year, make, model, mileage, symptoms, tags } });
+      return await diagnose({ data: { year, make, model, mileage, symptoms, tags, language, region, currency } });
     },
-    onSuccess: (data) => setResult(data),
+    onSuccess: (data) => {
+      setResult(data);
+      setVehicleImg(null);
+      setStepImgs({});
+      setStepDetails({});
+      // fire-and-forget vehicle hero image
+      if (data.vehicleImagePrompt) {
+        genImg({ data: { prompt: data.vehicleImagePrompt } })
+          .then((r) => setVehicleImg(r.dataUrl))
+          .catch(() => { /* silent */ });
+      }
+    },
     onError: (e: unknown) => {
       const msg = e instanceof Error ? e.message : "Diagnosis failed.";
       toast.error(msg);
@@ -72,62 +103,93 @@ function DiagnosePage() {
       result: result as never,
       severity: result.severity,
     });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Saved to history");
     qc.invalidateQueries({ queryKey: ["diagnoses"] });
   }
 
-  function toggleTag(t: string) {
-    setTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  function toggleTag(tag: string) {
+    setTags((prev) => (prev.includes(tag) ? prev.filter((x) => x !== tag) : [...prev, tag]));
+  }
+
+  async function loadStepImage(idx: number, prompt: string) {
+    if (stepImgs[idx] || stepLoading[idx]) return;
+    setStepLoading((s) => ({ ...s, [idx]: true }));
+    try {
+      const r = await genImg({ data: { prompt } });
+      setStepImgs((s) => ({ ...s, [idx]: r.dataUrl }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Image failed");
+    } finally {
+      setStepLoading((s) => ({ ...s, [idx]: false }));
+    }
+  }
+
+  async function loadStepDetail(idx: number, step: DiagStep) {
+    if (stepDetails[idx] || stepDetailLoading[idx]) return;
+    setStepDetailLoading((s) => ({ ...s, [idx]: true }));
+    try {
+      const r = await explain({ data: {
+        stepTitle: step.title, stepInstruction: step.instruction,
+        vehicle: `${year} ${make} ${model}`, language,
+      } });
+      setStepDetails((s) => ({ ...s, [idx]: r.detail }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not load detail");
+    } finally {
+      setStepDetailLoading((s) => ({ ...s, [idx]: false }));
+    }
   }
 
   const canSubmit = year && make && model && symptoms.length > 3 && !mutation.isPending;
+  const sym = currencySymbol(currency);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold">New Diagnosis</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Tell us about your car and what's wrong. Our AI handles the rest.</p>
+        <h1 className="font-display text-3xl font-bold">{t("diag.title")}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t("diag.subtitle")}</p>
       </div>
 
       <form
         onSubmit={(e) => { e.preventDefault(); if (canSubmit) mutation.mutate(); }}
-        className="rounded-2xl border border-border/60 bg-card p-6"
+        className="rounded-2xl border border-border/60 bg-card p-6 print:hidden"
       >
         <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-          <Car className="h-4 w-4" /> Step 1 — Vehicle
+          <Car className="h-4 w-4" /> {t("diag.step1")}
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Year"><Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2018" /></Field>
-          <Field label="Make"><Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Toyota" /></Field>
-          <Field label="Model"><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Corolla" /></Field>
-          <Field label="Mileage"><Input value={mileage} onChange={(e) => setMileage(e.target.value)} placeholder="120,000 km" /></Field>
+          <Field label={t("diag.year")}><Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2018" /></Field>
+          <Field label={t("diag.make")}><Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Toyota" /></Field>
+          <Field label={t("diag.model")}><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Corolla" /></Field>
+          <Field label={t("diag.mileage")}><Input value={mileage} onChange={(e) => setMileage(e.target.value)} placeholder="120,000 km" /></Field>
         </div>
 
         <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-primary">
-          <ListChecks className="h-4 w-4" /> Step 2 — Symptoms
+          <ListChecks className="h-4 w-4" /> {t("diag.step2")}
         </div>
         <div className="mt-4">
-          <Label htmlFor="symptoms" className="sr-only">Symptoms</Label>
+          <Label htmlFor="symptoms" className="sr-only">{t("diag.step2")}</Label>
           <Textarea
             id="symptoms"
             value={symptoms}
             onChange={(e) => setSymptoms(e.target.value)}
-            placeholder="Describe what's happening. E.g., 'Loud grinding noise when braking, especially at low speeds. Started yesterday.'"
+            placeholder={t("diag.symptoms.placeholder")}
             rows={5}
             maxLength={2000}
           />
           <div className="mt-4 flex flex-wrap gap-2">
-            {TAGS.map((t) => {
-              const active = tags.includes(t);
+            {TAG_KEYS.map(([id, key]) => {
+              const label = t(key);
+              const active = tags.includes(label);
               return (
                 <button
-                  key={t}
+                  key={id}
                   type="button"
-                  onClick={() => toggleTag(t)}
+                  onClick={() => toggleTag(label)}
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground"}`}
                 >
-                  {t}
+                  {label}
                 </button>
               );
             })}
@@ -136,66 +198,160 @@ function DiagnosePage() {
 
         <div className="mt-8 flex justify-end">
           <Button type="submit" disabled={!canSubmit} size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
-            {mutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing…</>) : (<><Sparkles className="mr-2 h-4 w-4" /> Run AI diagnosis</>)}
+            {mutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("diag.analyzing")}</>) : (<><Sparkles className="mr-2 h-4 w-4" /> {t("diag.submit")}</>)}
           </Button>
         </div>
       </form>
 
       {result && (
-        <section className="mt-10 rounded-2xl border border-border/60 bg-card p-6">
+        <section className="mt-10 rounded-2xl border border-border/60 bg-card p-6" id="diagnosis-result">
+          {vehicleImg && (
+            <div className="mb-6 overflow-hidden rounded-xl border border-border/60">
+              <img src={vehicleImg} alt={`${year} ${make} ${model}`} className="h-56 w-full object-cover sm:h-72" />
+              <div className="bg-background/60 px-4 py-2 text-xs text-muted-foreground">{year} {make} {model}</div>
+            </div>
+          )}
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                <Wrench className="h-4 w-4" /> Diagnosis
+                <Wrench className="h-4 w-4" /> {t("diag.diagnosis")}
               </div>
               <h2 className="mt-2 font-display text-2xl font-bold">{result.diagnosis}</h2>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <SeverityBadge severity={result.severity} />
-                <Badge variant="outline">Confidence: {result.confidence}</Badge>
-                <Badge variant="outline">DIY: {result.diyDifficulty}</Badge>
+                <Badge variant="outline">{t("diag.confidence")}: {result.confidence}</Badge>
+                <Badge variant="outline">{t("diag.diy")}: {result.diyDifficulty}</Badge>
               </div>
             </div>
-            <Button onClick={save} variant="outline"><Save className="mr-2 h-4 w-4" /> Save to history</Button>
+            <div className="flex flex-wrap gap-2 print:hidden">
+              <Button onClick={() => window.print()} variant="outline"><Printer className="mr-2 h-4 w-4" /> {t("diag.print")}</Button>
+              <Button onClick={save} variant="outline"><Save className="mr-2 h-4 w-4" /> {t("diag.save")}</Button>
+            </div>
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <InfoBox label="Estimated cost" value={result.estimatedCostRange} />
-            <InfoBox label="Parts needed" value={result.partsNeeded.length === 0 ? "None listed" : `${result.partsNeeded.length} item(s)`} />
+            <InfoBox label={t("diag.cost")} value={result.estimatedCostRange} />
+            <InfoBox label={t("diag.parts")} value={result.partsNeeded.length === 0 ? "—" : `${result.partsNeeded.length}`} />
           </div>
 
           {(result.severity === "High" || result.severity === "Critical") && (
             <div className="mt-6 flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
               <div>
-                <div className="font-semibold text-destructive">See a mechanic</div>
+                <div className="font-semibold text-destructive">{t("diag.mechanic")}</div>
                 <p className="mt-1 text-foreground/90">{result.mechanicAdvice}</p>
               </div>
             </div>
           )}
 
           <div className="mt-6">
-            <h3 className="font-display text-lg font-semibold">Step-by-step DIY fix</h3>
-            <ol className="mt-3 space-y-2">
+            <h3 className="font-display text-lg font-semibold">{t("diag.steps")}</h3>
+            <Accordion type="multiple" className="mt-3">
               {result.diySteps.map((s, i) => (
-                <li key={i} className="flex gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">{i + 1}</span>
-                  <span>{s}</span>
-                </li>
+                <AccordionItem key={i} value={`step-${i}`} className="rounded-lg border border-border/60 bg-background/40 px-4 mb-2">
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex items-center gap-3 text-left">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">{i + 1}</span>
+                      <span className="font-medium">{s.title}</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent data-print-expand>
+                    <div className="space-y-3 pt-1">
+                      <p className="text-sm text-foreground/90">{s.instruction}</p>
+                      {s.tip && (
+                        <p className="rounded-md bg-primary/5 px-3 py-2 text-xs text-foreground/80"><span className="font-semibold text-primary">{t("diag.tip")}:</span> {s.tip}</p>
+                      )}
+                      {stepImgs[i] ? (
+                        <img src={stepImgs[i]} alt={s.title} className="w-full rounded-lg border border-border/60" />
+                      ) : (
+                        <Button type="button" size="sm" variant="outline" disabled={stepLoading[i]} onClick={() => loadStepImage(i, s.imagePrompt)} className="print:hidden">
+                          {stepLoading[i] ? (<><Loader2 className="mr-2 h-3 w-3 animate-spin" /> {t("diag.regenerating")}</>) : (<><ImageIcon className="mr-2 h-3 w-3" /> {t("diag.generateImage")}</>)}
+                        </Button>
+                      )}
+                      <div className="flex flex-wrap gap-2 print:hidden">
+                        <Button type="button" size="sm" variant="ghost" disabled={stepDetailLoading[i]} onClick={() => loadStepDetail(i, s)}>
+                          {stepDetailLoading[i] ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <HelpCircle className="mr-2 h-3 w-3" />}
+                          {t("diag.moreDetail")}
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" asChild>
+                          <a href={youtubeUrl(`${year} ${make} ${model} ${s.searchQuery}`)} target="_blank" rel="noopener noreferrer">
+                            <Youtube className="mr-2 h-3 w-3" /> {t("diag.watchVideo")}
+                          </a>
+                        </Button>
+                      </div>
+                      {stepDetails[i] && (
+                        <div className="whitespace-pre-wrap rounded-md border border-border/60 bg-card p-3 text-xs leading-relaxed text-foreground/90">{stepDetails[i]}</div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </ol>
+            </Accordion>
           </div>
 
-          {result.partsNeeded.length > 0 && (
+          {result.toolsNeeded && result.toolsNeeded.length > 0 && (
             <div className="mt-6">
-              <h3 className="font-display text-lg font-semibold">Parts needed</h3>
-              <ul className="mt-3 divide-y divide-border/60 rounded-lg border border-border/60">
-                {result.partsNeeded.map((p, i) => (
-                  <li key={i} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-                    <span>{p.part}</span>
-                    <span className="text-muted-foreground">{p.estimatedCost}</span>
+              <h3 className="font-display text-lg font-semibold">{t("diag.tools")}</h3>
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                {result.toolsNeeded.map((tool, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm">
+                    <span>{tool.name}</span>
+                    <Button asChild size="sm" variant="outline" className="print:hidden">
+                      <a href={shopUrl(tool.searchQuery)} target="_blank" rel="noopener noreferrer">
+                        {t("diag.buy")} <ExternalLink className="ml-1 h-3 w-3" />
+                      </a>
+                    </Button>
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {result.partsNeeded.length > 0 && (
+            <div className="mt-6">
+              <h3 className="font-display text-lg font-semibold">{t("diag.parts")}</h3>
+              <ul className="mt-3 divide-y divide-border/60 rounded-lg border border-border/60">
+                {result.partsNeeded.map((p, i) => (
+                  <li key={i} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                    <span className="flex-1">{p.part}</span>
+                    <span className="text-muted-foreground">
+                      {Number.isFinite(p.priceLow) && Number.isFinite(p.priceHigh)
+                        ? `${sym}${p.priceLow}–${sym}${p.priceHigh}`
+                        : p.estimatedCost}
+                    </span>
+                    <Button asChild size="sm" variant="outline" className="print:hidden">
+                      <a href={shopUrl(p.searchQuery || p.part)} target="_blank" rel="noopener noreferrer">
+                        {t("diag.buy")} <ExternalLink className="ml-1 h-3 w-3" />
+                      </a>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {result.youtubeQueries && result.youtubeQueries.length > 0 && (
+            <div className="mt-6">
+              <h3 className="font-display text-lg font-semibold">{t("diag.videos")}</h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {result.youtubeQueries.slice(0, 5).map((q, i) => (
+                  <a
+                    key={i}
+                    href={youtubeUrl(q)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex flex-col gap-2 rounded-lg border border-border/60 bg-background/40 p-3 transition-colors hover:border-primary/50"
+                  >
+                    <div className="flex aspect-video items-center justify-center rounded-md bg-gradient-to-br from-red-500/20 to-red-900/40">
+                      <Youtube className="h-10 w-10 text-red-500" />
+                    </div>
+                    <div className="text-sm font-medium group-hover:text-primary">{q}</div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <ExternalLink className="h-3 w-3" /> YouTube
+                    </div>
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 
@@ -204,7 +360,7 @@ function DiagnosePage() {
           )}
 
           {result.severity !== "High" && result.severity !== "Critical" && result.mechanicAdvice && (
-            <p className="mt-4 text-xs text-muted-foreground"><span className="font-semibold text-foreground">When to see a mechanic:</span> {result.mechanicAdvice}</p>
+            <p className="mt-4 text-xs text-muted-foreground"><span className="font-semibold text-foreground">{t("diag.whenMechanic")}:</span> {result.mechanicAdvice}</p>
           )}
         </section>
       )}
