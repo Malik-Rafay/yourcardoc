@@ -138,3 +138,11 @@
     letter-spacing: -0.02em;
   }
 }
+
+@media print {
+  :root { color-scheme: light; }
+  body { background: white !important; color: black !important; }
+  .print\:hidden { display: none !important; }
+  [data-print-expand] { display: block !important; }
+  a { color: inherit !important; text-decoration: none !important; }
+}
