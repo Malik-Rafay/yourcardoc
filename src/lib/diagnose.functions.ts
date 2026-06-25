@@ -10,7 +10,20 @@ const InputSchema = z.object({
   mileage: z.string().trim().max(20),
   symptoms: z.string().trim().min(3).max(2000),
   tags: z.array(z.string().max(40)).max(20).default([]),
+  language: z.string().max(20).default("en"),
+  region: z.string().max(20).default("EU"),
+  currency: z.string().max(10).default("EUR"),
 });
+
+export type DiagStep = {
+  title: string;
+  instruction: string;
+  tip?: string;
+  imagePrompt: string;
+  searchQuery: string;
+};
+export type DiagPart = { part: string; estimatedCost: string; priceLow: number; priceHigh: number; searchQuery: string };
+export type DiagTool = { name: string; searchQuery: string };
 
 export type DiagnosisResult = {
   diagnosis: string;
@@ -18,11 +31,16 @@ export type DiagnosisResult = {
   severity: "Low" | "Medium" | "High" | "Critical";
   estimatedCostRange: string;
   diyDifficulty: "Easy" | "Moderate" | "Hard" | "Not Recommended";
-  diySteps: string[];
-  partsNeeded: { part: string; estimatedCost: string }[];
+  diySteps: DiagStep[];
+  partsNeeded: DiagPart[];
+  toolsNeeded: DiagTool[];
+  youtubeQueries: string[];
+  vehicleImagePrompt: string;
   mechanicAdvice: string;
   additionalNotes: string;
 };
+
+const LANG_NAMES: Record<string, string> = { en: "English", fi: "Finnish", de: "German", es: "Spanish", fr: "French" };
 
 export const runDiagnosis = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
@@ -33,21 +51,35 @@ export const runDiagnosis = createServerFn({ method: "POST" })
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("google/gemini-3-flash-preview");
 
+    const langName = LANG_NAMES[data.language] ?? "English";
     const prompt = `You are an expert automotive mechanic AI. The user has a ${data.year} ${data.make} ${data.model} with ${data.mileage} km/miles. They describe these symptoms: "${data.symptoms}". Additional tags: ${data.tags.join(", ") || "none"}.
 
-Respond ONLY with valid JSON (no markdown, no code fences) matching this schema:
+IMPORTANT:
+- Respond in ${langName}. All human-readable strings must be in ${langName}.
+- The user is in region: ${data.region}. Price estimates MUST reflect typical parts AND labor costs for that region.
+- Use ${data.currency} for currency. Provide realistic priceLow/priceHigh numbers (not symbolic).
+- searchQuery fields MUST be in English (for product/video search engines), and should include the exact car: "${data.year} ${data.make} ${data.model}" where relevant.
+- imagePrompt fields MUST be in English and describe a clear, photorealistic close-up illustration of what the user does in that step.
+
+Respond ONLY with valid JSON (no markdown, no code fences) matching this schema exactly:
 {
   "diagnosis": string,
   "confidence": "High" | "Medium" | "Low",
   "severity": "Low" | "Medium" | "High" | "Critical",
   "estimatedCostRange": string,
   "diyDifficulty": "Easy" | "Moderate" | "Hard" | "Not Recommended",
-  "diySteps": string[],
-  "partsNeeded": [{ "part": string, "estimatedCost": string }],
+  "diySteps": [{ "title": string, "instruction": string, "tip": string, "imagePrompt": string, "searchQuery": string }],
+  "partsNeeded": [{ "part": string, "estimatedCost": string, "priceLow": number, "priceHigh": number, "searchQuery": string }],
+  "toolsNeeded": [{ "name": string, "searchQuery": string }],
+  "youtubeQueries": string[],
+  "vehicleImagePrompt": string,
   "mechanicAdvice": string,
   "additionalNotes": string
 }
-Use € for currency. Steps should be numbered, concrete, and safety-aware.`;
+
+- diySteps: 4–10 concrete, safety-aware steps. "title" is short (max 8 words). "instruction" is 1–3 sentences.
+- youtubeQueries: 3–5 distinct YouTube search queries that would surface helpful tutorials for THIS specific car and problem.
+- vehicleImagePrompt: a one-sentence prompt describing the user's car (year, make, model, common color, 3/4 angle, studio lighting, photorealistic) for an image generator.`;
 
     const { text } = await generateText({ model, prompt });
     const cleaned = text.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/, "").trim();
@@ -62,4 +94,57 @@ Use € for currency. Steps should be numbered, concrete, and safety-aware.`;
       parsed = JSON.parse(match[0]);
     }
     return parsed;
+  });
+
+const ExplainInput = z.object({
+  stepTitle: z.string().max(200),
+  stepInstruction: z.string().max(1000),
+  vehicle: z.string().max(200),
+  language: z.string().max(20).default("en"),
+});
+
+export const explainStep = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => ExplainInput.parse(input))
+  .handler(async ({ data }): Promise<{ detail: string }> => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("AI is not configured.");
+    const gateway = createLovableAiGatewayProvider(key);
+    const model = gateway("google/gemini-3-flash-preview");
+    const langName = LANG_NAMES[data.language] ?? "English";
+    const prompt = `Vehicle: ${data.vehicle}. A user is stuck on this repair step:
+Title: ${data.stepTitle}
+Instruction: ${data.stepInstruction}
+
+Write a detailed, beginner-friendly walkthrough in ${langName} (5–10 short paragraphs) explaining exactly how to perform this step safely. Include tool handling, common mistakes, what success looks like, and what to do if something doesn't fit. Plain text only, no markdown.`;
+    const { text } = await generateText({ model, prompt });
+    return { detail: text.trim() };
+  });
+
+const ImageInput = z.object({ prompt: z.string().min(3).max(500) });
+
+export const generateImage = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => ImageInput.parse(input))
+  .handler(async ({ data }): Promise<{ dataUrl: string }> => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("AI is not configured.");
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: data.prompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(`Image generation failed: ${res.status} ${t.slice(0, 200)}`);
+    }
+    const json = await res.json() as { data?: { b64_json?: string }[] };
+    const b64 = json.data?.[0]?.b64_json;
+    if (!b64) throw new Error("No image returned");
+    return { dataUrl: `data:image/png;base64,${b64}` };
   });
