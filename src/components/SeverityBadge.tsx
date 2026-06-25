@@ -2,16 +2,20 @@ import { cn } from "@/lib/utils";
 
 export function SeverityBadge({ severity, className }: { severity?: string; className?: string }) {
   const s = (severity || "Low").toLowerCase();
-  const styles =
-    s === "critical"
-      ? "bg-[oklch(var(--severity-critical)/0.15)] text-[color:var(--severity-critical)] border-[color:var(--severity-critical)]/40"
-      : s === "high"
-      ? "bg-[oklch(var(--severity-high)/0.15)] text-[color:var(--severity-high)] border-[color:var(--severity-high)]/40"
-      : s === "medium"
-      ? "bg-[oklch(var(--severity-medium)/0.15)] text-[color:var(--severity-medium)] border-[color:var(--severity-medium)]/40"
-      : "bg-[oklch(var(--severity-low)/0.15)] text-[color:var(--severity-low)] border-[color:var(--severity-low)]/40";
+  const color =
+    s === "critical" ? "var(--severity-critical)"
+    : s === "high" ? "var(--severity-high)"
+    : s === "medium" ? "var(--severity-medium)"
+    : "var(--severity-low)";
   return (
-    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide", styles, className)}>
+    <span
+      className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide", className)}
+      style={{
+        color,
+        borderColor: `color-mix(in oklab, ${color} 40%, transparent)`,
+        backgroundColor: `color-mix(in oklab, ${color} 15%, transparent)`,
+      }}
+    >
       {severity || "Low"}
     </span>
   );
