@@ -16,7 +16,7 @@ type DResult = {
   diagnosis?: string;
   estimatedCostRange?: string;
   diyDifficulty?: string;
-  diySteps?: string[];
+  diySteps?: (string | { title?: string; instruction?: string })[];
   partsNeeded?: { part: string; estimatedCost: string }[];
   mechanicAdvice?: string;
   additionalNotes?: string;
@@ -92,7 +92,11 @@ function HistoryPage() {
                     <div>
                       <div className="font-semibold">Steps</div>
                       <ol className="mt-2 list-inside list-decimal space-y-1 text-muted-foreground">
-                        {r.diySteps.map((s, i) => <li key={i}>{s}</li>)}
+                        {r.diySteps.map((s, i) => (
+                          <li key={i}>
+                            {typeof s === "string" ? s : [s.title, s.instruction].filter(Boolean).join(" — ")}
+                          </li>
+                        ))}
                       </ol>
                     </div>
                   )}
