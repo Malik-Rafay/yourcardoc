@@ -69,7 +69,7 @@ function DiagnosePage() {
       year, make, model, mileage,
       symptoms,
       tags,
-      result: result as unknown as Record<string, unknown>,
+      result: result as never,
       severity: result.severity,
     });
     if (error) return toast.error(error.message);
