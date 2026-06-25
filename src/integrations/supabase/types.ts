@@ -14,7 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      diagnoses: {
+        Row: {
+          created_at: string
+          id: string
+          make: string | null
+          mileage: string | null
+          model: string | null
+          result: Json
+          severity: string | null
+          symptoms: string
+          tags: string[] | null
+          user_id: string
+          year: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          make?: string | null
+          mileage?: string | null
+          model?: string | null
+          result: Json
+          severity?: string | null
+          symptoms: string
+          tags?: string[] | null
+          user_id: string
+          year?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          make?: string | null
+          mileage?: string | null
+          model?: string | null
+          result?: Json
+          severity?: string | null
+          symptoms?: string
+          tags?: string[] | null
+          user_id?: string
+          year?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          default_make: string | null
+          default_mileage: string | null
+          default_model: string | null
+          default_year: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_make?: string | null
+          default_mileage?: string | null
+          default_model?: string | null
+          default_year?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_make?: string | null
+          default_mileage?: string | null
+          default_model?: string | null
+          default_year?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
