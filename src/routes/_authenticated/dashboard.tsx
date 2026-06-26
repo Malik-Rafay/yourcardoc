@@ -4,6 +4,7 @@ import { ArrowRight, Stethoscope, History, BookOpen, TrendingDown, Wrench } from
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SeverityBadge } from "@/components/SeverityBadge";
+import { useT, useLocale, currencySymbol } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — AutoDoctor AI" }] }),
@@ -12,6 +13,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
+  const t = useT();
+  const { currency } = useLocale();
 
   const profileQ = useQuery({
     queryKey: ["profile", user.id],
@@ -51,28 +54,28 @@ function Dashboard() {
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold">Welcome back, {name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Here's a snapshot of your garage.</p>
+          <h1 className="font-display text-3xl font-bold">{t("dash.welcome")}, {name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("dash.snapshot")}</p>
         </div>
         <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Link to="/diagnose"><Stethoscope className="mr-2 h-4 w-4" /> Start new diagnosis</Link>
+          <Link to="/diagnose"><Stethoscope className="mr-2 h-4 w-4" /> {t("dash.startNew")}</Link>
         </Button>
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        <StatCard icon={Stethoscope} label="Total diagnoses" value={String(total)} />
-        <StatCard icon={TrendingDown} label="Estimated savings" value={`€${savedEstimate}`} />
-        <StatCard icon={Wrench} label="Most common issue" value={topIssue} />
+        <StatCard icon={Stethoscope} label={t("dash.stat.total")} value={String(total)} />
+        <StatCard icon={TrendingDown} label={t("dash.stat.savings")} value={`${currencySymbol(currency)}${savedEstimate}`} />
+        <StatCard icon={Wrench} label={t("dash.stat.common")} value={topIssue} />
       </div>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-3">
         <section className="rounded-2xl border border-border/60 bg-card p-6 lg:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl font-semibold">Recent diagnoses</h2>
-            <Link to="/history" className="text-sm text-primary hover:underline">View all</Link>
+            <h2 className="font-display text-xl font-semibold">{t("dash.recent")}</h2>
+            <Link to="/history" className="text-sm text-primary hover:underline">{t("dash.viewAll")}</Link>
           </div>
           {recent.length === 0 ? (
-            <p className="mt-6 text-sm text-muted-foreground">No diagnoses yet. Run your first one to see it here.</p>
+            <p className="mt-6 text-sm text-muted-foreground">{t("dash.empty")}</p>
           ) : (
             <ul className="mt-4 divide-y divide-border/60">
               {recent.map((d) => {
@@ -96,15 +99,15 @@ function Dashboard() {
         <div className="grid gap-4">
           <Link to="/library" className="group rounded-2xl border border-border/60 bg-card p-6 transition-colors hover:border-primary/50">
             <BookOpen className="h-6 w-6 text-primary" />
-            <h3 className="mt-3 font-display text-lg font-semibold">Library</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Browse common car problems and DIY fixes.</p>
-            <span className="mt-3 inline-flex items-center gap-1 text-sm text-primary">Explore <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
+            <h3 className="mt-3 font-display text-lg font-semibold">{t("nav.library")}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{t("dash.card.library.desc")}</p>
+            <span className="mt-3 inline-flex items-center gap-1 text-sm text-primary">{t("dash.card.explore")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
           </Link>
           <Link to="/history" className="group rounded-2xl border border-border/60 bg-card p-6 transition-colors hover:border-primary/50">
             <History className="h-6 w-6 text-primary" />
-            <h3 className="mt-3 font-display text-lg font-semibold">Full history</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Review and manage past diagnoses.</p>
-            <span className="mt-3 inline-flex items-center gap-1 text-sm text-primary">Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
+            <h3 className="mt-3 font-display text-lg font-semibold">{t("dash.card.history")}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{t("dash.card.history.desc")}</p>
+            <span className="mt-3 inline-flex items-center gap-1 text-sm text-primary">{t("dash.card.open")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
           </Link>
         </div>
       </div>

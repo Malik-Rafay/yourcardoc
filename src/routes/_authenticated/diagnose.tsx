@@ -31,6 +31,15 @@ function shopUrl(q: string) {
 function youtubeUrl(q: string) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 }
+function openExternal(url: string) {
+  // Use window.open so the click works inside sandboxed previews / accordions
+  // that may otherwise swallow anchor navigation.
+  const w = window.open(url, "_blank", "noopener,noreferrer");
+  if (!w) {
+    // popup blocked — fall back to top-level navigation
+    window.location.href = url;
+  }
+}
 
 function DiagnosePage() {
   const { user } = Route.useRouteContext();
@@ -273,10 +282,8 @@ function DiagnosePage() {
                           {stepDetailLoading[i] ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <HelpCircle className="mr-2 h-3 w-3" />}
                           {t("diag.moreDetail")}
                         </Button>
-                        <Button type="button" size="sm" variant="ghost" asChild>
-                          <a href={youtubeUrl(`${year} ${make} ${model} ${s.searchQuery}`)} target="_blank" rel="noopener noreferrer">
-                            <Youtube className="mr-2 h-3 w-3" /> {t("diag.watchVideo")}
-                          </a>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => openExternal(youtubeUrl(`${year} ${make} ${model} ${s.searchQuery}`))}>
+                          <Youtube className="mr-2 h-3 w-3" /> {t("diag.watchVideo")}
                         </Button>
                       </div>
                       {stepDetails[i] && (
@@ -296,10 +303,8 @@ function DiagnosePage() {
                 {result.toolsNeeded.map((tool, i) => (
                   <li key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm">
                     <span>{tool.name}</span>
-                    <Button asChild size="sm" variant="outline" className="print:hidden">
-                      <a href={shopUrl(tool.searchQuery)} target="_blank" rel="noopener noreferrer">
-                        {t("diag.buy")} <ExternalLink className="ml-1 h-3 w-3" />
-                      </a>
+                    <Button type="button" size="sm" variant="outline" className="print:hidden" onClick={() => openExternal(shopUrl(tool.searchQuery))}>
+                      {t("diag.buy")} <ExternalLink className="ml-1 h-3 w-3" />
                     </Button>
                   </li>
                 ))}
@@ -319,10 +324,8 @@ function DiagnosePage() {
                         ? `${sym}${p.priceLow}–${sym}${p.priceHigh}`
                         : p.estimatedCost}
                     </span>
-                    <Button asChild size="sm" variant="outline" className="print:hidden">
-                      <a href={shopUrl(p.searchQuery || p.part)} target="_blank" rel="noopener noreferrer">
-                        {t("diag.buy")} <ExternalLink className="ml-1 h-3 w-3" />
-                      </a>
+                    <Button type="button" size="sm" variant="outline" className="print:hidden" onClick={() => openExternal(shopUrl(p.searchQuery || p.part))}>
+                      {t("diag.buy")} <ExternalLink className="ml-1 h-3 w-3" />
                     </Button>
                   </li>
                 ))}
@@ -335,12 +338,11 @@ function DiagnosePage() {
               <h3 className="font-display text-lg font-semibold">{t("diag.videos")}</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {result.youtubeQueries.slice(0, 5).map((q, i) => (
-                  <a
+                  <button
                     key={i}
-                    href={youtubeUrl(q)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex flex-col gap-2 rounded-lg border border-border/60 bg-background/40 p-3 transition-colors hover:border-primary/50"
+                    type="button"
+                    onClick={() => openExternal(youtubeUrl(q))}
+                    className="group flex flex-col gap-2 rounded-lg border border-border/60 bg-background/40 p-3 text-left transition-colors hover:border-primary/50"
                   >
                     <div className="flex aspect-video items-center justify-center rounded-md bg-gradient-to-br from-red-500/20 to-red-900/40">
                       <Youtube className="h-10 w-10 text-red-500" />
@@ -349,7 +351,7 @@ function DiagnosePage() {
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <ExternalLink className="h-3 w-3" /> YouTube
                     </div>
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>

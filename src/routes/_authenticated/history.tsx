@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SeverityBadge } from "@/components/SeverityBadge";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/history")({
   head: () => ({ meta: [{ title: "History — AutoDoctor AI" }] }),
@@ -26,6 +27,7 @@ function HistoryPage() {
   const { user } = Route.useRouteContext();
   const qc = useQueryClient();
   const [open, setOpen] = useState<string | null>(null);
+  const t = useT();
 
   const q = useQuery({
     queryKey: ["diagnoses", user.id, "all"],
@@ -42,20 +44,20 @@ function HistoryPage() {
   async function remove(id: string) {
     const { error } = await supabase.from("diagnoses").delete().eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success("Deleted");
+    toast.success(t("history.deleted"));
     qc.invalidateQueries({ queryKey: ["diagnoses"] });
   }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-      <h1 className="font-display text-3xl font-bold">History</h1>
-      <p className="mt-1 text-sm text-muted-foreground">All your past diagnoses, newest first.</p>
+      <h1 className="font-display text-3xl font-bold">{t("history.title")}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{t("history.sub")}</p>
 
       <div className="mt-8 space-y-3">
-        {q.isLoading && <p className="text-muted-foreground">Loading…</p>}
+        {q.isLoading && <p className="text-muted-foreground">{t("common.loading")}</p>}
         {q.data && q.data.length === 0 && (
           <div className="rounded-2xl border border-border/60 bg-card p-10 text-center text-muted-foreground">
-            No diagnoses yet.
+            {t("history.empty")}
           </div>
         )}
         {q.data?.map((d) => {
@@ -76,21 +78,21 @@ function HistoryPage() {
                   <p className="mt-2 line-clamp-2 text-sm text-foreground/80">{d.symptoms}</p>
                 </div>
                 <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => setOpen(isOpen ? null : d.id)} aria-label="Toggle details">
+                  <Button size="icon" variant="ghost" onClick={() => setOpen(isOpen ? null : d.id)} aria-label={t("history.toggle")}>
                     {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => remove(d.id)} aria-label="Delete">
+                  <Button size="icon" variant="ghost" onClick={() => remove(d.id)} aria-label={t("history.delete")}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
               </div>
               {isOpen && (
                 <div className="space-y-4 border-t border-border/60 p-5 text-sm">
-                  {r.estimatedCostRange && <p><span className="font-semibold">Estimated cost:</span> {r.estimatedCostRange}</p>}
-                  {r.diyDifficulty && <p><span className="font-semibold">DIY difficulty:</span> {r.diyDifficulty}</p>}
+                  {r.estimatedCostRange && <p><span className="font-semibold">{t("history.estCost")}:</span> {r.estimatedCostRange}</p>}
+                  {r.diyDifficulty && <p><span className="font-semibold">{t("history.diyDiff")}:</span> {r.diyDifficulty}</p>}
                   {r.diySteps && r.diySteps.length > 0 && (
                     <div>
-                      <div className="font-semibold">Steps</div>
+                      <div className="font-semibold">{t("history.steps")}</div>
                       <ol className="mt-2 list-inside list-decimal space-y-1 text-muted-foreground">
                         {r.diySteps.map((s, i) => (
                           <li key={i}>
@@ -102,13 +104,13 @@ function HistoryPage() {
                   )}
                   {r.partsNeeded && r.partsNeeded.length > 0 && (
                     <div>
-                      <div className="font-semibold">Parts</div>
+                      <div className="font-semibold">{t("history.partsNeeded")}</div>
                       <ul className="mt-2 space-y-1 text-muted-foreground">
                         {r.partsNeeded.map((p, i) => <li key={i}>{p.part} — {p.estimatedCost}</li>)}
                       </ul>
                     </div>
                   )}
-                  {r.mechanicAdvice && <p className="text-muted-foreground"><span className="font-semibold text-foreground">Mechanic advice:</span> {r.mechanicAdvice}</p>}
+                  {r.mechanicAdvice && <p className="text-muted-foreground"><span className="font-semibold text-foreground">{t("history.mechAdvice")}:</span> {r.mechanicAdvice}</p>}
                   {r.additionalNotes && <p className="text-muted-foreground">{r.additionalNotes}</p>}
                 </div>
               )}
