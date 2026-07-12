@@ -69,34 +69,64 @@ function HistoryPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <SeverityBadge severity={d.severity ?? undefined} />
-                    <span className="text-xs text-muted-foreground">{new Date(d.created_at).toLocaleString()}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(d.created_at).toLocaleString()}
+                    </span>
                   </div>
-                  <h2 className="mt-2 font-display text-lg font-semibold">{r.diagnosis ?? "Diagnosis"}</h2>
+                  <h2 className="mt-2 font-display text-lg font-semibold">
+                    {r.diagnosis ?? "Diagnosis"}
+                  </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {d.year} {d.make} {d.model} · {d.mileage}
                   </p>
                   <p className="mt-2 line-clamp-2 text-sm text-foreground/80">{d.symptoms}</p>
                 </div>
                 <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => setOpen(isOpen ? null : d.id)} aria-label={t("history.toggle")}>
-                    {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setOpen(isOpen ? null : d.id)}
+                    aria-label={t("history.toggle")}
+                  >
+                    {isOpen ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => remove(d.id)} aria-label={t("history.delete")}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => remove(d.id)}
+                    aria-label={t("history.delete")}
+                  >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
               </div>
               {isOpen && (
                 <div className="space-y-4 border-t border-border/60 p-5 text-sm">
-                  {r.estimatedCostRange && <p><span className="font-semibold">{t("history.estCost")}:</span> {r.estimatedCostRange}</p>}
-                  {r.diyDifficulty && <p><span className="font-semibold">{t("history.diyDiff")}:</span> {r.diyDifficulty}</p>}
+                  {r.estimatedCostRange && (
+                    <p>
+                      <span className="font-semibold">{t("history.estCost")}:</span>{" "}
+                      {r.estimatedCostRange}
+                    </p>
+                  )}
+                  {r.diyDifficulty && (
+                    <p>
+                      <span className="font-semibold">{t("history.diyDiff")}:</span>{" "}
+                      {r.diyDifficulty}
+                    </p>
+                  )}
                   {r.diySteps && r.diySteps.length > 0 && (
                     <div>
                       <div className="font-semibold">{t("history.steps")}</div>
                       <ol className="mt-2 list-inside list-decimal space-y-1 text-muted-foreground">
                         {r.diySteps.map((s, i) => (
                           <li key={i}>
-                            {typeof s === "string" ? s : [s.title, s.instruction].filter(Boolean).join(" — ")}
+                            {typeof s === "string"
+                              ? s
+                              : [s.title, s.instruction].filter(Boolean).join(" — ")}
                           </li>
                         ))}
                       </ol>
@@ -106,12 +136,25 @@ function HistoryPage() {
                     <div>
                       <div className="font-semibold">{t("history.partsNeeded")}</div>
                       <ul className="mt-2 space-y-1 text-muted-foreground">
-                        {r.partsNeeded.map((p, i) => <li key={i}>{p.part} — {p.estimatedCost}</li>)}
+                        {r.partsNeeded.map((p, i) => (
+                          <li key={i}>
+                            {p.part} — {p.estimatedCost}
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   )}
-                  {r.mechanicAdvice && <p className="text-muted-foreground"><span className="font-semibold text-foreground">{t("history.mechAdvice")}:</span> {r.mechanicAdvice}</p>}
-                  {r.additionalNotes && <p className="text-muted-foreground">{r.additionalNotes}</p>}
+                  {r.mechanicAdvice && (
+                    <p className="text-muted-foreground">
+                      <span className="font-semibold text-foreground">
+                        {t("history.mechAdvice")}:
+                      </span>{" "}
+                      {r.mechanicAdvice}
+                    </p>
+                  )}
+                  {r.additionalNotes && (
+                    <p className="text-muted-foreground">{r.additionalNotes}</p>
+                  )}
                 </div>
               )}
             </article>

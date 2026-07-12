@@ -22,12 +22,41 @@ function PricingPage() {
   const { currency } = useLocale();
   const sym = currencySymbol(currency);
   const TIERS = [
-    { name: t("pricing.free"), price: `${sym}0`, period: t("pricing.per.forever"), desc: t("pricing.free.desc"), cta: t("pricing.free.cta"),
-      features: [t("pricing.free.f1"), t("pricing.free.f2"), t("pricing.free.f3")] },
-    { name: t("pricing.pro"), price: `${sym}9.99`, period: t("pricing.per.month"), desc: t("pricing.pro.desc"), cta: t("pricing.pro.cta"), highlight: true,
-      features: [t("pricing.pro.f1"), t("pricing.pro.f2"), t("pricing.pro.f3"), t("pricing.pro.f4")] },
-    { name: t("pricing.prem"), price: `${sym}19.99`, period: t("pricing.per.month"), desc: t("pricing.prem.desc"), cta: t("pricing.prem.cta"),
-      features: [t("pricing.prem.f1"), t("pricing.prem.f2"), t("pricing.prem.f3"), t("pricing.prem.f4")] },
+    {
+      name: t("pricing.free"),
+      price: `${sym}0`,
+      period: t("pricing.per.forever"),
+      desc: t("pricing.free.desc"),
+      cta: t("pricing.free.cta"),
+      features: [t("pricing.free.f1"), t("pricing.free.f2"), t("pricing.free.f3")],
+    },
+    {
+      name: t("pricing.pro"),
+      price: `${sym}9.99`,
+      period: t("pricing.per.month"),
+      desc: t("pricing.pro.desc"),
+      cta: t("pricing.pro.cta"),
+      highlight: true,
+      features: [
+        t("pricing.pro.f1"),
+        t("pricing.pro.f2"),
+        t("pricing.pro.f3"),
+        t("pricing.pro.f4"),
+      ],
+    },
+    {
+      name: t("pricing.prem"),
+      price: `${sym}19.99`,
+      period: t("pricing.per.month"),
+      desc: t("pricing.prem.desc"),
+      cta: t("pricing.prem.cta"),
+      features: [
+        t("pricing.prem.f1"),
+        t("pricing.prem.f2"),
+        t("pricing.prem.f3"),
+        t("pricing.prem.f4"),
+      ],
+    },
   ];
   return (
     <div className="flex min-h-screen flex-col">
@@ -35,7 +64,9 @@ function PricingPage() {
       <main className="flex-1">
         <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
           <div className="mx-auto max-w-2xl text-center">
-            <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">{t("pricing.h1")}</h1>
+            <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
+              {t("pricing.h1")}
+            </h1>
             <p className="mt-4 text-lg text-muted-foreground">{t("pricing.sub")}</p>
           </div>
           <div className="mt-12 grid gap-6 md:grid-cols-3">
@@ -45,7 +76,9 @@ function PricingPage() {
                 className={`rounded-2xl border bg-card p-8 ${tier.highlight ? "border-primary" : "border-border/60"}`}
               >
                 {tier.highlight && (
-                  <span className="mb-3 inline-block rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">{t("pricing.popular")}</span>
+                  <span className="mb-3 inline-block rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+                    {t("pricing.popular")}
+                  </span>
                 )}
                 <h2 className="font-display text-2xl font-bold">{tier.name}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{tier.desc}</p>
@@ -53,7 +86,11 @@ function PricingPage() {
                   <span className="font-display text-4xl font-bold">{tier.price}</span>
                   <span className="text-sm text-muted-foreground">/ {tier.period}</span>
                 </div>
-                <Button asChild className={`mt-6 w-full ${tier.highlight ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}`} variant={tier.highlight ? "default" : "outline"}>
+                <Button
+                  asChild
+                  className={`mt-6 w-full ${tier.highlight ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}`}
+                  variant={tier.highlight ? "default" : "outline"}
+                >
                   <Link to="/register">{tier.cta}</Link>
                 </Button>
                 <ul className="mt-6 space-y-3">

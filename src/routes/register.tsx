@@ -10,7 +10,12 @@ import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/register")({
-  head: () => ({ meta: [{ title: "Create account — AutoDoctor AI" }, { name: "description", content: "Create a free AutoDoctor AI account." }] }),
+  head: () => ({
+    meta: [
+      { title: "Create account — AutoDoctor AI" },
+      { name: "description", content: "Create a free AutoDoctor AI account." },
+    ],
+  }),
   component: RegisterPage,
 });
 
@@ -28,18 +33,28 @@ function RegisterPage() {
     if (password.length < 6) return toast.error(t("auth.pwShort"));
     if (password !== confirm) return toast.error(t("auth.pwMismatch"));
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: name },
-        emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
       },
     });
     setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success(t("auth.created"));
-    navigate({ to: "/dashboard" });
+    console.log("Supabase signup result:", { data, error });
+    if (error) {
+      console.error("Signup error details:", error);
+      return toast.error(error.message || JSON.stringify(error));
+    }
+
+    if (data?.session) {
+      toast.success(t("auth.created"));
+      navigate({ to: "/dashboard" });
+      return;
+    }
+
+    toast.success("Account created. Check your email to verify it, then sign in.");
+    navigate({ to: "/login" });
   }
 
   return (
@@ -56,23 +71,50 @@ function RegisterPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">{t("auth.email")}</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+              <Input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">{t("auth.password")}</Label>
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm">{t("auth.confirmPw")}</Label>
-              <Input id="confirm" type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+              <Input
+                id="confirm"
+                type="password"
+                required
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
+              />
             </div>
-            <Button type="submit" disabled={loading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+            >
               {loading ? t("auth.creating") : t("auth.create")}
             </Button>
           </form>
           <p className="mt-6 text-center text-sm text-muted-foreground">
             {t("auth.have")}{" "}
-            <Link to="/login" className="text-primary hover:underline">{t("auth.signIn")}</Link>
+            <Link to="/login" className="text-primary hover:underline">
+              {t("auth.signIn")}
+            </Link>
           </p>
         </div>
       </main>

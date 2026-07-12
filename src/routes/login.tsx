@@ -10,7 +10,12 @@ import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Login — AutoDoctor AI" }, { name: "description", content: "Log in to AutoDoctor AI." }] }),
+  head: () => ({
+    meta: [
+      { title: "Login — AutoDoctor AI" },
+      { name: "description", content: "Log in to AutoDoctor AI." },
+    ],
+  }),
   component: LoginPage,
 });
 
@@ -24,9 +29,19 @@ function LoginPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    console.log("Supabase login result:", { data, error });
+    if (error) {
+      console.error("Login error details", error);
+      return toast.error(error.message || JSON.stringify(error));
+    }
+
+    if (!data?.session) {
+      console.error("Login returned no session", data);
+      return toast.error("Sign-in did not return an active session. Check your credentials or verify your email.");
+    }
+
     toast.success(t("auth.welcomeBack"));
     navigate({ to: "/dashboard" });
   }
@@ -41,22 +56,44 @@ function LoginPage() {
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">{t("auth.email")}</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+              <Input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">{t("auth.password")}</Label>
-                <Link to="/forgot-password" className="text-xs text-primary hover:underline">{t("auth.forgot")}</Link>
+                <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+                  {t("auth.forgot")}
+                </Link>
               </div>
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
             </div>
-            <Button type="submit" disabled={loading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+            >
               {loading ? t("auth.signingIn") : t("auth.signIn")}
             </Button>
           </form>
           <p className="mt-6 text-center text-sm text-muted-foreground">
             {t("auth.newHere")}{" "}
-            <Link to="/register" className="text-primary hover:underline">{t("auth.createAcct")}</Link>
+            <Link to="/register" className="text-primary hover:underline">
+              {t("auth.createAcct")}
+            </Link>
           </p>
         </div>
       </main>

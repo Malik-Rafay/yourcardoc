@@ -9,7 +9,9 @@ import { useT } from "@/lib/i18n";
 export function AppHeader() {
   const [userId, setUserId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = useRouterState({
+    select: (s: { location: { pathname: string } }) => s.location.pathname,
+  });
   const t = useT();
 
   useEffect(() => {
@@ -44,10 +46,15 @@ export function AppHeader() {
       <LocaleBar />
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "var(--gradient-primary)" }}>
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-lg"
+            style={{ background: "var(--gradient-primary)" }}
+          >
             <Wrench className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="font-display text-lg font-bold tracking-tight">AutoDoctor<span className="text-primary">AI</span></span>
+          <span className="font-display text-lg font-bold tracking-tight">
+            AutoDoctor<span className="text-primary">AI</span>
+          </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
           {links.map((l) => {
@@ -73,7 +80,11 @@ export function AppHeader() {
               <Button variant="ghost" size="sm" asChild>
                 <Link to="/login">{t("nav.login")}</Link>
               </Button>
-              <Button size="sm" asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button
+                size="sm"
+                asChild
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
                 <Link to="/register">{t("nav.register")}</Link>
               </Button>
             </>

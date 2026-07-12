@@ -110,7 +110,12 @@
   --severity-high: oklch(0.7 0.2 50);
   --severity-critical: oklch(0.62 0.24 25);
 
-  --gradient-hero: linear-gradient(135deg, oklch(0.22 0.04 260), oklch(0.18 0.02 250) 60%, oklch(0.25 0.08 40 / 0.4));
+  --gradient-hero: linear-gradient(
+    135deg,
+    oklch(0.22 0.04 260),
+    oklch(0.18 0.02 250) 60%,
+    oklch(0.25 0.08 40 / 0.4)
+  );
   --gradient-primary: linear-gradient(135deg, oklch(0.72 0.19 50), oklch(0.62 0.22 30));
   --shadow-glow: 0 10px 40px -10px oklch(0.62 0.22 30 / 0.4);
 }
@@ -133,16 +138,32 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  h1, h2, h3, h4, .font-display {
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
     font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
 }
 
 @media print {
-  :root { color-scheme: light; }
-  body { background: white !important; color: black !important; }
-  .print\:hidden { display: none !important; }
-  [data-print-expand] { display: block !important; }
-  a { color: inherit !important; text-decoration: none !important; }
+  :root {
+    color-scheme: light;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  [data-print-expand] {
+    display: block !important;
+  }
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
 }

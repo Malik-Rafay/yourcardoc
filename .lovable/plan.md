@@ -15,6 +15,7 @@ This is a large set of changes. Here's how I'll structure the work so each piece
 ## 2. Diagnosis: richer AI output
 
 Extend `runDiagnosis` server function so Gemini returns, in addition to today's fields:
+
 - `diySteps`: array of `{ title, instruction, tip, imagePrompt, searchQuery }` (was strings).
 - `toolsNeeded`: array of `{ name, searchQuery }`.
 - `partsNeeded`: kept, plus `searchQuery` per part and a `priceLow/priceHigh` numeric pair in the user's currency.

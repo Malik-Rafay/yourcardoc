@@ -2,16 +2,40 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Car, ExternalLink, Image as ImageIcon, ListChecks, Loader2, Printer, Save, Sparkles, Wrench, Youtube, HelpCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  Car,
+  ExternalLink,
+  Image as ImageIcon,
+  ListChecks,
+  Loader2,
+  Printer,
+  Save,
+  Sparkles,
+  Wrench,
+  Youtube,
+  HelpCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { SeverityBadge } from "@/components/SeverityBadge";
 import { supabase } from "@/integrations/supabase/client";
-import { runDiagnosis, explainStep, generateImage, type DiagnosisResult, type DiagStep } from "@/lib/diagnose.functions";
+import {
+  runDiagnosis,
+  explainStep,
+  generateImage,
+  type DiagnosisResult,
+  type DiagStep,
+} from "@/lib/diagnose.functions";
 import { useLocale, currencySymbol } from "@/lib/i18n";
 import { toast } from "sonner";
 
@@ -21,8 +45,14 @@ export const Route = createFileRoute("/_authenticated/diagnose")({
 });
 
 const TAG_KEYS = [
-  ["noise", "tags.noise"], ["warning", "tags.warning"], ["perf", "tags.perf"], ["over", "tags.over"],
-  ["start", "tags.start"], ["leak", "tags.leak"], ["vib", "tags.vib"], ["smoke", "tags.smoke"],
+  ["noise", "tags.noise"],
+  ["warning", "tags.warning"],
+  ["perf", "tags.perf"],
+  ["over", "tags.over"],
+  ["start", "tags.start"],
+  ["leak", "tags.leak"],
+  ["vib", "tags.vib"],
+  ["smoke", "tags.smoke"],
 ] as const;
 
 function shopUrl(q: string) {
@@ -82,7 +112,9 @@ function DiagnosePage() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      return await diagnose({ data: { year, make, model, mileage, symptoms, tags, language, region, currency } });
+      return await diagnose({
+        data: { year, make, model, mileage, symptoms, tags, language, region, currency },
+      });
     },
     onSuccess: (data) => {
       setResult(data);
@@ -93,7 +125,9 @@ function DiagnosePage() {
       if (data.vehicleImagePrompt) {
         genImg({ data: { prompt: data.vehicleImagePrompt } })
           .then((r) => setVehicleImg(r.dataUrl))
-          .catch(() => { /* silent */ });
+          .catch(() => {
+            /* silent */
+          });
       }
     },
     onError: (e: unknown) => {
@@ -106,13 +140,19 @@ function DiagnosePage() {
     if (!result) return;
     const { error } = await supabase.from("diagnoses").insert({
       user_id: user.id,
-      year, make, model, mileage,
+      year,
+      make,
+      model,
+      mileage,
       symptoms,
       tags,
       result: result as never,
       severity: result.severity,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Saved to history");
     qc.invalidateQueries({ queryKey: ["diagnoses"] });
   }
@@ -138,10 +178,14 @@ function DiagnosePage() {
     if (stepDetails[idx] || stepDetailLoading[idx]) return;
     setStepDetailLoading((s) => ({ ...s, [idx]: true }));
     try {
-      const r = await explain({ data: {
-        stepTitle: step.title, stepInstruction: step.instruction,
-        vehicle: `${year} ${make} ${model}`, language,
-      } });
+      const r = await explain({
+        data: {
+          stepTitle: step.title,
+          stepInstruction: step.instruction,
+          vehicle: `${year} ${make} ${model}`,
+          language,
+        },
+      });
       setStepDetails((s) => ({ ...s, [idx]: r.detail }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not load detail");
@@ -161,24 +205,41 @@ function DiagnosePage() {
       </div>
 
       <form
-        onSubmit={(e) => { e.preventDefault(); if (canSubmit) mutation.mutate(); }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (canSubmit) mutation.mutate();
+        }}
         className="rounded-2xl border border-border/60 bg-card p-6 print:hidden"
       >
         <div className="flex items-center gap-2 text-sm font-semibold text-primary">
           <Car className="h-4 w-4" /> {t("diag.step1")}
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label={t("diag.year")}><Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2018" /></Field>
-          <Field label={t("diag.make")}><Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Toyota" /></Field>
-          <Field label={t("diag.model")}><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Corolla" /></Field>
-          <Field label={t("diag.mileage")}><Input value={mileage} onChange={(e) => setMileage(e.target.value)} placeholder="120,000 km" /></Field>
+          <Field label={t("diag.year")}>
+            <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2018" />
+          </Field>
+          <Field label={t("diag.make")}>
+            <Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Toyota" />
+          </Field>
+          <Field label={t("diag.model")}>
+            <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Corolla" />
+          </Field>
+          <Field label={t("diag.mileage")}>
+            <Input
+              value={mileage}
+              onChange={(e) => setMileage(e.target.value)}
+              placeholder="120,000 km"
+            />
+          </Field>
         </div>
 
         <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-primary">
           <ListChecks className="h-4 w-4" /> {t("diag.step2")}
         </div>
         <div className="mt-4">
-          <Label htmlFor="symptoms" className="sr-only">{t("diag.step2")}</Label>
+          <Label htmlFor="symptoms" className="sr-only">
+            {t("diag.step2")}
+          </Label>
           <Textarea
             id="symptoms"
             value={symptoms}
@@ -206,18 +267,40 @@ function DiagnosePage() {
         </div>
 
         <div className="mt-8 flex justify-end">
-          <Button type="submit" disabled={!canSubmit} size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
-            {mutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("diag.analyzing")}</>) : (<><Sparkles className="mr-2 h-4 w-4" /> {t("diag.submit")}</>)}
+          <Button
+            type="submit"
+            disabled={!canSubmit}
+            size="lg"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {mutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("diag.analyzing")}
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" /> {t("diag.submit")}
+              </>
+            )}
           </Button>
         </div>
       </form>
 
       {result && (
-        <section className="mt-10 rounded-2xl border border-border/60 bg-card p-6" id="diagnosis-result">
+        <section
+          className="mt-10 rounded-2xl border border-border/60 bg-card p-6"
+          id="diagnosis-result"
+        >
           {vehicleImg && (
             <div className="mb-6 overflow-hidden rounded-xl border border-border/60">
-              <img src={vehicleImg} alt={`${year} ${make} ${model}`} className="h-56 w-full object-cover sm:h-72" />
-              <div className="bg-background/60 px-4 py-2 text-xs text-muted-foreground">{year} {make} {model}</div>
+              <img
+                src={vehicleImg}
+                alt={`${year} ${make} ${model}`}
+                className="h-56 w-full object-cover sm:h-72"
+              />
+              <div className="bg-background/60 px-4 py-2 text-xs text-muted-foreground">
+                {year} {make} {model}
+              </div>
             </div>
           )}
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -228,19 +311,30 @@ function DiagnosePage() {
               <h2 className="mt-2 font-display text-2xl font-bold">{result.diagnosis}</h2>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <SeverityBadge severity={result.severity} />
-                <Badge variant="outline">{t("diag.confidence")}: {result.confidence}</Badge>
-                <Badge variant="outline">{t("diag.diy")}: {result.diyDifficulty}</Badge>
+                <Badge variant="outline">
+                  {t("diag.confidence")}: {result.confidence}
+                </Badge>
+                <Badge variant="outline">
+                  {t("diag.diy")}: {result.diyDifficulty}
+                </Badge>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 print:hidden">
-              <Button onClick={() => window.print()} variant="outline"><Printer className="mr-2 h-4 w-4" /> {t("diag.print")}</Button>
-              <Button onClick={save} variant="outline"><Save className="mr-2 h-4 w-4" /> {t("diag.save")}</Button>
+              <Button onClick={() => window.print()} variant="outline">
+                <Printer className="mr-2 h-4 w-4" /> {t("diag.print")}
+              </Button>
+              <Button onClick={save} variant="outline">
+                <Save className="mr-2 h-4 w-4" /> {t("diag.save")}
+              </Button>
             </div>
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <InfoBox label={t("diag.cost")} value={result.estimatedCostRange} />
-            <InfoBox label={t("diag.parts")} value={result.partsNeeded.length === 0 ? "—" : `${result.partsNeeded.length}`} />
+            <InfoBox
+              label={t("diag.parts")}
+              value={result.partsNeeded.length === 0 ? "—" : `${result.partsNeeded.length}`}
+            />
           </div>
 
           {(result.severity === "High" || result.severity === "Critical") && (
@@ -257,10 +351,16 @@ function DiagnosePage() {
             <h3 className="font-display text-lg font-semibold">{t("diag.steps")}</h3>
             <Accordion type="multiple" className="mt-3">
               {result.diySteps.map((s, i) => (
-                <AccordionItem key={i} value={`step-${i}`} className="rounded-lg border border-border/60 bg-background/40 px-4 mb-2">
+                <AccordionItem
+                  key={i}
+                  value={`step-${i}`}
+                  className="rounded-lg border border-border/60 bg-background/40 px-4 mb-2"
+                >
                   <AccordionTrigger className="hover:no-underline">
                     <div className="flex items-center gap-3 text-left">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">{i + 1}</span>
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                        {i + 1}
+                      </span>
                       <span className="font-medium">{s.title}</span>
                     </div>
                   </AccordionTrigger>
@@ -268,26 +368,68 @@ function DiagnosePage() {
                     <div className="space-y-3 pt-1">
                       <p className="text-sm text-foreground/90">{s.instruction}</p>
                       {s.tip && (
-                        <p className="rounded-md bg-primary/5 px-3 py-2 text-xs text-foreground/80"><span className="font-semibold text-primary">{t("diag.tip")}:</span> {s.tip}</p>
+                        <p className="rounded-md bg-primary/5 px-3 py-2 text-xs text-foreground/80">
+                          <span className="font-semibold text-primary">{t("diag.tip")}:</span>{" "}
+                          {s.tip}
+                        </p>
                       )}
                       {stepImgs[i] ? (
-                        <img src={stepImgs[i]} alt={s.title} className="w-full rounded-lg border border-border/60" />
+                        <img
+                          src={stepImgs[i]}
+                          alt={s.title}
+                          className="w-full rounded-lg border border-border/60"
+                        />
                       ) : (
-                        <Button type="button" size="sm" variant="outline" disabled={stepLoading[i]} onClick={() => loadStepImage(i, s.imagePrompt)} className="print:hidden">
-                          {stepLoading[i] ? (<><Loader2 className="mr-2 h-3 w-3 animate-spin" /> {t("diag.regenerating")}</>) : (<><ImageIcon className="mr-2 h-3 w-3" /> {t("diag.generateImage")}</>)}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={stepLoading[i]}
+                          onClick={() => loadStepImage(i, s.imagePrompt)}
+                          className="print:hidden"
+                        >
+                          {stepLoading[i] ? (
+                            <>
+                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />{" "}
+                              {t("diag.regenerating")}
+                            </>
+                          ) : (
+                            <>
+                              <ImageIcon className="mr-2 h-3 w-3" /> {t("diag.generateImage")}
+                            </>
+                          )}
                         </Button>
                       )}
                       <div className="flex flex-wrap gap-2 print:hidden">
-                        <Button type="button" size="sm" variant="ghost" disabled={stepDetailLoading[i]} onClick={() => loadStepDetail(i, s)}>
-                          {stepDetailLoading[i] ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <HelpCircle className="mr-2 h-3 w-3" />}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={stepDetailLoading[i]}
+                          onClick={() => loadStepDetail(i, s)}
+                        >
+                          {stepDetailLoading[i] ? (
+                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                          ) : (
+                            <HelpCircle className="mr-2 h-3 w-3" />
+                          )}
                           {t("diag.moreDetail")}
                         </Button>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => openExternal(youtubeUrl(`${year} ${make} ${model} ${s.searchQuery}`))}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            openExternal(youtubeUrl(`${year} ${make} ${model} ${s.searchQuery}`))
+                          }
+                        >
                           <Youtube className="mr-2 h-3 w-3" /> {t("diag.watchVideo")}
                         </Button>
                       </div>
                       {stepDetails[i] && (
-                        <div className="whitespace-pre-wrap rounded-md border border-border/60 bg-card p-3 text-xs leading-relaxed text-foreground/90">{stepDetails[i]}</div>
+                        <div className="whitespace-pre-wrap rounded-md border border-border/60 bg-card p-3 text-xs leading-relaxed text-foreground/90">
+                          {stepDetails[i]}
+                        </div>
                       )}
                     </div>
                   </AccordionContent>
@@ -301,9 +443,18 @@ function DiagnosePage() {
               <h3 className="font-display text-lg font-semibold">{t("diag.tools")}</h3>
               <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                 {result.toolsNeeded.map((tool, i) => (
-                  <li key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm">
+                  <li
+                    key={i}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm"
+                  >
                     <span>{tool.name}</span>
-                    <Button type="button" size="sm" variant="outline" className="print:hidden" onClick={() => openExternal(shopUrl(tool.searchQuery))}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="print:hidden"
+                      onClick={() => openExternal(shopUrl(tool.searchQuery))}
+                    >
                       {t("diag.buy")} <ExternalLink className="ml-1 h-3 w-3" />
                     </Button>
                   </li>
@@ -317,14 +468,23 @@ function DiagnosePage() {
               <h3 className="font-display text-lg font-semibold">{t("diag.parts")}</h3>
               <ul className="mt-3 divide-y divide-border/60 rounded-lg border border-border/60">
                 {result.partsNeeded.map((p, i) => (
-                  <li key={i} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <li
+                    key={i}
+                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
+                  >
                     <span className="flex-1">{p.part}</span>
                     <span className="text-muted-foreground">
                       {Number.isFinite(p.priceLow) && Number.isFinite(p.priceHigh)
                         ? `${sym}${p.priceLow}–${sym}${p.priceHigh}`
                         : p.estimatedCost}
                     </span>
-                    <Button type="button" size="sm" variant="outline" className="print:hidden" onClick={() => openExternal(shopUrl(p.searchQuery || p.part))}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="print:hidden"
+                      onClick={() => openExternal(shopUrl(p.searchQuery || p.part))}
+                    >
                       {t("diag.buy")} <ExternalLink className="ml-1 h-3 w-3" />
                     </Button>
                   </li>
@@ -358,12 +518,19 @@ function DiagnosePage() {
           )}
 
           {result.additionalNotes && (
-            <p className="mt-6 rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">{result.additionalNotes}</p>
+            <p className="mt-6 rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">
+              {result.additionalNotes}
+            </p>
           )}
 
-          {result.severity !== "High" && result.severity !== "Critical" && result.mechanicAdvice && (
-            <p className="mt-4 text-xs text-muted-foreground"><span className="font-semibold text-foreground">{t("diag.whenMechanic")}:</span> {result.mechanicAdvice}</p>
-          )}
+          {result.severity !== "High" &&
+            result.severity !== "Critical" &&
+            result.mechanicAdvice && (
+              <p className="mt-4 text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{t("diag.whenMechanic")}:</span>{" "}
+                {result.mechanicAdvice}
+              </p>
+            )}
         </section>
       )}
     </div>

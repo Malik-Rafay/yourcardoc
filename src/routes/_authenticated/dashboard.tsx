@@ -19,7 +19,11 @@ function Dashboard() {
   const profileQ = useQuery({
     queryKey: ["profile", user.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -54,17 +58,29 @@ function Dashboard() {
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold">{t("dash.welcome")}, {name}</h1>
+          <h1 className="font-display text-3xl font-bold">
+            {t("dash.welcome")}, {name}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("dash.snapshot")}</p>
         </div>
-        <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Link to="/diagnose"><Stethoscope className="mr-2 h-4 w-4" /> {t("dash.startNew")}</Link>
+        <Button
+          asChild
+          size="lg"
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          <Link to="/diagnose">
+            <Stethoscope className="mr-2 h-4 w-4" /> {t("dash.startNew")}
+          </Link>
         </Button>
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <StatCard icon={Stethoscope} label={t("dash.stat.total")} value={String(total)} />
-        <StatCard icon={TrendingDown} label={t("dash.stat.savings")} value={`${currencySymbol(currency)}${savedEstimate}`} />
+        <StatCard
+          icon={TrendingDown}
+          label={t("dash.stat.savings")}
+          value={`${currencySymbol(currency)}${savedEstimate}`}
+        />
         <StatCard icon={Wrench} label={t("dash.stat.common")} value={topIssue} />
       </div>
 
@@ -72,7 +88,9 @@ function Dashboard() {
         <section className="rounded-2xl border border-border/60 bg-card p-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-xl font-semibold">{t("dash.recent")}</h2>
-            <Link to="/history" className="text-sm text-primary hover:underline">{t("dash.viewAll")}</Link>
+            <Link to="/history" className="text-sm text-primary hover:underline">
+              {t("dash.viewAll")}
+            </Link>
           </div>
           {recent.length === 0 ? (
             <p className="mt-6 text-sm text-muted-foreground">{t("dash.empty")}</p>
@@ -97,17 +115,29 @@ function Dashboard() {
         </section>
 
         <div className="grid gap-4">
-          <Link to="/library" className="group rounded-2xl border border-border/60 bg-card p-6 transition-colors hover:border-primary/50">
+          <Link
+            to="/library"
+            className="group rounded-2xl border border-border/60 bg-card p-6 transition-colors hover:border-primary/50"
+          >
             <BookOpen className="h-6 w-6 text-primary" />
             <h3 className="mt-3 font-display text-lg font-semibold">{t("nav.library")}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{t("dash.card.library.desc")}</p>
-            <span className="mt-3 inline-flex items-center gap-1 text-sm text-primary">{t("dash.card.explore")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
+            <span className="mt-3 inline-flex items-center gap-1 text-sm text-primary">
+              {t("dash.card.explore")}{" "}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </span>
           </Link>
-          <Link to="/history" className="group rounded-2xl border border-border/60 bg-card p-6 transition-colors hover:border-primary/50">
+          <Link
+            to="/history"
+            className="group rounded-2xl border border-border/60 bg-card p-6 transition-colors hover:border-primary/50"
+          >
             <History className="h-6 w-6 text-primary" />
             <h3 className="mt-3 font-display text-lg font-semibold">{t("dash.card.history")}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{t("dash.card.history.desc")}</p>
-            <span className="mt-3 inline-flex items-center gap-1 text-sm text-primary">{t("dash.card.open")} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
+            <span className="mt-3 inline-flex items-center gap-1 text-sm text-primary">
+              {t("dash.card.open")}{" "}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </span>
           </Link>
         </div>
       </div>
@@ -115,7 +145,15 @@ function Dashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-2xl border border-border/60 bg-card p-6">
       <div className="flex items-center justify-between">

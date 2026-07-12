@@ -20,6 +20,15 @@ type ChartContextProps = {
   config: ChartConfig;
 };
 
+type RechartsTooltipPayloadItem = {
+  type?: string;
+  dataKey?: string | number;
+  name?: string;
+  payload?: { fill?: string } & Record<string, unknown>;
+  value?: string | number | (string | number)[] | null;
+  color?: string;
+};
+
 const ChartContext = React.createContext<ChartContextProps | null>(null);
 
 function useChart() {
@@ -101,6 +110,7 @@ const ChartTooltipContent = React.forwardRef<
       indicator?: "line" | "dot" | "dashed";
       nameKey?: string;
       labelKey?: string;
+      labelClassName?: string;
     }
 >(
   (
@@ -137,8 +147,10 @@ const ChartTooltipContent = React.forwardRef<
           : itemConfig?.label;
 
       if (labelFormatter) {
+        const labelValue =
+          typeof value === "string" || typeof value === "number" ? value : `${value}`;
         return (
-          <div className={cn("font-medium", labelClassName)}>{labelFormatter(value, payload)}</div>
+          <div className={cn("font-medium", labelClassName)}>{labelFormatter(labelValue)}</div>
         );
       }
 
@@ -165,12 +177,18 @@ const ChartTooltipContent = React.forwardRef<
       >
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
-          {payload
-            .filter((item) => item.type !== "none")
+          {(payload as unknown[])
+            .filter(
+              (item): item is RechartsTooltipPayloadItem =>
+                typeof item === "object" &&
+                item !== null &&
+                "type" in item &&
+                (item as { type?: unknown }).type !== "none",
+            )
             .map((item, index) => {
               const key = `${nameKey || item.name || item.dataKey || "value"}`;
               const itemConfig = getPayloadConfigFromPayload(config, item, key);
-              const indicatorColor = color || item.payload.fill || item.color;
+              const indicatorColor = color || item.payload?.fill || item.color;
 
               return (
                 <div
@@ -180,8 +198,17 @@ const ChartTooltipContent = React.forwardRef<
                     indicator === "dot" && "items-center",
                   )}
                 >
-                  {formatter && item?.value !== undefined && item.name ? (
-                    formatter(item.value, item.name, item, index, item.payload)
+                  {formatter &&
+                  item.name &&
+                  (typeof item.value === "string" ||
+                    typeof item.value === "number" ||
+                    Array.isArray(item.value)) ? (
+                    formatter(
+                      item.value,
+                      item.name as string,
+                      item as RechartsPrimitive.TooltipPayload,
+                      index,
+                    )
                   ) : (
                     <>
                       {itemConfig?.icon ? (
@@ -220,9 +247,13 @@ const ChartTooltipContent = React.forwardRef<
                             {itemConfig?.label || item.name}
                           </span>
                         </div>
-                        {item.value && (
+                        {item.value !== undefined && item.value !== null && (
                           <span className="font-mono font-medium tabular-nums text-foreground">
-                            {item.value.toLocaleString()}
+                            {typeof item.value === "number" || typeof item.value === "string"
+                              ? item.value.toLocaleString()
+                              : Array.isArray(item.value)
+                                ? item.value.join(", ")
+                                : String(item.value)}
                           </span>
                         )}
                       </div>
@@ -263,15 +294,23 @@ const ChartLegendContent = React.forwardRef<
         className,
       )}
     >
-      {payload
-        .filter((item) => item.type !== "none")
+      {(payload as unknown[])
+        .filter(
+          (item): item is RechartsTooltipPayloadItem =>
+            typeof item === "object" &&
+            item !== null &&
+            "type" in item &&
+            (item as { type?: unknown }).type !== "none",
+        )
         .map((item) => {
           const key = `${nameKey || item.dataKey || "value"}`;
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
 
           return (
             <div
-              key={item.value}
+              key={
+                typeof item.value === "string" || typeof item.value === "number" ? item.value : key
+              }
               className={cn(
                 "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground",
               )}

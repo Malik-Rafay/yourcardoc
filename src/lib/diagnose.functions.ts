@@ -22,7 +22,13 @@ export type DiagStep = {
   imagePrompt: string;
   searchQuery: string;
 };
-export type DiagPart = { part: string; estimatedCost: string; priceLow: number; priceHigh: number; searchQuery: string };
+export type DiagPart = {
+  part: string;
+  estimatedCost: string;
+  priceLow: number;
+  priceHigh: number;
+  searchQuery: string;
+};
 export type DiagTool = { name: string; searchQuery: string };
 
 export type DiagnosisResult = {
@@ -40,16 +46,31 @@ export type DiagnosisResult = {
   additionalNotes: string;
 };
 
-const LANG_NAMES: Record<string, string> = { en: "English", fi: "Finnish", de: "German", es: "Spanish", fr: "French" };
+const LANG_NAMES: Record<string, string> = {
+  en: "English",
+  fi: "Finnish",
+  de: "German",
+  es: "Spanish",
+  fr: "French",
+};
+
+function looksLikeOpenAIKey(value?: string): value is string {
+  return typeof value === "string" && value.startsWith("sk-");
+}
 
 export const runDiagnosis = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<DiagnosisResult> => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("AI is not configured.");
+    const key =
+    process.env.OPENAI_API_KEY
+
+    if (!key) {
+      console.error("AI key missing: OPENAI_API_KEY is undefined.");
+      throw new Error("AI is not configured.");
+    }
 
     const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("google/gemini-3-flash-preview");
+    const model = gateway("gpt-4o");
 
     const langName = LANG_NAMES[data.language] ?? "English";
     const prompt = `You are an expert automotive mechanic AI. The user has a ${data.year} ${data.make} ${data.model} with ${data.mileage} km/miles. They describe these symptoms: "${data.symptoms}". Additional tags: ${data.tags.join(", ") || "none"}.
@@ -81,8 +102,20 @@ Respond ONLY with valid JSON (no markdown, no code fences) matching this schema 
 - youtubeQueries: 3–5 distinct YouTube search queries that would surface helpful tutorials for THIS specific car and problem.
 - vehicleImagePrompt: a one-sentence prompt describing the user's car (year, make, model, common color, 3/4 angle, studio lighting, photorealistic) for an image generator.`;
 
-    const { text } = await generateText({ model, prompt });
-    const cleaned = text.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/, "").trim();
+    let text: string;
+    try {
+      const res = await generateText({ model, prompt });
+      text = res.text;
+    } catch (err) {
+      console.error("runDiagnosis generateText error:", err);
+      throw new Error("AI generation failed. Check server logs for details.");
+    }
+    const cleaned = text
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```$/, "")
+      .trim();
 
     let parsed: DiagnosisResult;
     try {
@@ -106,18 +139,32 @@ const ExplainInput = z.object({
 export const explainStep = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ExplainInput.parse(input))
   .handler(async ({ data }): Promise<{ detail: string }> => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("AI is not configured.");
+    const key =
+      process.env.LOVABLE_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.VITE_LOVABLE_API_KEY ||
+      process.env.VITE_OPENAI_API_KEY;
+    if (!key) {
+      console.error("AI key missing: LOVABLE_API_KEY, OPENAI_API_KEY, VITE_LOVABLE_API_KEY, and VITE_OPENAI_API_KEY are all undefined.");
+      throw new Error("AI is not configured.");
+    }
     const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("google/gemini-3-flash-preview");
+    const model = gateway(looksLikeOpenAIKey(key) ? "gpt-4o" : "google/gemini-3-flash-preview");
     const langName = LANG_NAMES[data.language] ?? "English";
     const prompt = `Vehicle: ${data.vehicle}. A user is stuck on this repair step:
 Title: ${data.stepTitle}
 Instruction: ${data.stepInstruction}
 
 Write a detailed, beginner-friendly walkthrough in ${langName} (5–10 short paragraphs) explaining exactly how to perform this step safely. Include tool handling, common mistakes, what success looks like, and what to do if something doesn't fit. Plain text only, no markdown.`;
-    const { text } = await generateText({ model, prompt });
-    return { detail: text.trim() };
+    let detailText: string;
+    try {
+      const res = await generateText({ model, prompt });
+      detailText = res.text;
+    } catch (err) {
+      console.error("explainStep generateText error:", err);
+      throw new Error("AI generation failed. Check server logs for details.");
+    }
+    return { detail: detailText.trim() };
   });
 
 const ImageInput = z.object({ prompt: z.string().min(3).max(500) });
@@ -130,7 +177,7 @@ export const generateImage = createServerFn({ method: "POST" })
     const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${key}`,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -143,7 +190,7 @@ export const generateImage = createServerFn({ method: "POST" })
       const t = await res.text().catch(() => "");
       throw new Error(`Image generation failed: ${res.status} ${t.slice(0, 200)}`);
     }
-    const json = await res.json() as { data?: { b64_json?: string }[] };
+    const json = (await res.json()) as { data?: { b64_json?: string }[] };
     const b64 = json.data?.[0]?.b64_json;
     if (!b64) throw new Error("No image returned");
     return { dataUrl: `data:image/png;base64,${b64}` };

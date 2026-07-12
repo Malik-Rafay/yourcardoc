@@ -9,9 +9,16 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "AutoDoctor AI — Diagnose car problems instantly" },
-      { name: "description", content: "Your intelligent roadside companion. Diagnose vehicle symptoms, get repair estimates, and follow DIY fix guides to save on mechanic costs." },
+      {
+        name: "description",
+        content:
+          "Your intelligent roadside companion. Diagnose vehicle symptoms, get repair estimates, and follow DIY fix guides to save on mechanic costs.",
+      },
       { property: "og:title", content: "AutoDoctor AI" },
-      { property: "og:description", content: "AI car diagnosis, repair estimates, and DIY fix guides." },
+      {
+        property: "og:description",
+        content: "AI car diagnosis, repair estimates, and DIY fix guides.",
+      },
     ],
   }),
   component: Home,
@@ -23,7 +30,10 @@ function Home() {
     <div className="min-h-screen">
       <AppHeader />
       <main>
-        <section className="relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
+        <section
+          className="relative overflow-hidden"
+          style={{ background: "var(--gradient-hero)" }}
+        >
           <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:py-32">
             <div className="mx-auto max-w-3xl text-center">
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
@@ -33,11 +43,14 @@ function Home() {
               <h1 className="font-display text-4xl font-bold tracking-tight sm:text-6xl">
                 {t("home.h1.a")} <span className="text-primary">{t("home.h1.b")}</span>
               </h1>
-              <p className="mt-6 text-lg text-muted-foreground sm:text-xl">
-                {t("home.hero.desc")}
-              </p>
+              <p className="mt-6 text-lg text-muted-foreground sm:text-xl">{t("home.hero.desc")}</p>
               <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-                <Button asChild size="lg" className="h-12 px-6 text-base font-semibold" style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}>
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-12 px-6 text-base font-semibold"
+                  style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
+                >
                   <Link to="/register">
                     {t("home.cta.primary")} <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
@@ -49,7 +62,13 @@ function Home() {
               <p className="mt-4 text-xs text-muted-foreground">{t("home.freeNote")}</p>
             </div>
           </div>
-          <div className="pointer-events-none absolute inset-0 -z-0 opacity-30" style={{ background: "radial-gradient(60% 50% at 50% 0%, oklch(0.62 0.22 30 / 0.25), transparent)" }} />
+          <div
+            className="pointer-events-none absolute inset-0 -z-0 opacity-30"
+            style={{
+              background:
+                "radial-gradient(60% 50% at 50% 0%, oklch(0.62 0.22 30 / 0.25), transparent)",
+            }}
+          />
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
@@ -78,25 +97,45 @@ function Home() {
                 { quote: t("home.t2"), name: t("home.t2.who") },
                 { quote: t("home.t3"), name: t("home.t3.who") },
               ].map((tt) => (
-                <figure key={tt.name} className="rounded-2xl border border-border/60 bg-background/50 p-6">
+                <figure
+                  key={tt.name}
+                  className="rounded-2xl border border-border/60 bg-background/50 p-6"
+                >
                   <blockquote className="text-sm text-foreground">"{tt.quote}"</blockquote>
-                  <figcaption className="mt-4 text-xs text-muted-foreground">— {tt.name}</figcaption>
+                  <figcaption className="mt-4 text-xs text-muted-foreground">
+                    — {tt.name}
+                  </figcaption>
                 </figure>
               ))}
             </div>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> {t("home.trust.private")}</span>
-              <span className="inline-flex items-center gap-2"><Car className="h-4 w-4 text-primary" /> {t("home.trust.any")}</span>
-              <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> {t("home.trust.ai")}</span>
+              <span className="inline-flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-primary" /> {t("home.trust.private")}
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Car className="h-4 w-4 text-primary" /> {t("home.trust.any")}
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" /> {t("home.trust.ai")}
+              </span>
             </div>
           </div>
         </section>
 
         <section className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{t("home.final.h2")}</h2>
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            {t("home.final.h2")}
+          </h2>
           <p className="mt-4 text-muted-foreground">{t("home.final.desc")}</p>
-          <Button asChild size="lg" className="mt-8 h-12 px-6 text-base font-semibold" style={{ background: "var(--gradient-primary)" }}>
-            <Link to="/register">{t("home.final.cta")} <ArrowRight className="ml-2 h-5 w-5" /></Link>
+          <Button
+            asChild
+            size="lg"
+            className="mt-8 h-12 px-6 text-base font-semibold"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Link to="/register">
+              {t("home.final.cta")} <ArrowRight className="ml-2 h-5 w-5" />
+            </Link>
           </Button>
         </section>
       </main>

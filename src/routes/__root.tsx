@@ -79,10 +79,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "AutoDoctor AI — Your intelligent roadside companion" },
-      { name: "description", content: "Diagnose car problems instantly, get repair cost estimates, and follow step-by-step DIY fix guides." },
+      {
+        name: "description",
+        content:
+          "Diagnose car problems instantly, get repair cost estimates, and follow step-by-step DIY fix guides.",
+      },
       { name: "author", content: "AutoDoctor AI" },
       { property: "og:title", content: "AutoDoctor AI" },
-      { property: "og:description", content: "AI vehicle diagnosis, repair estimates, and DIY guides." },
+      {
+        property: "og:description",
+        content: "AI vehicle diagnosis, repair estimates, and DIY guides.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },

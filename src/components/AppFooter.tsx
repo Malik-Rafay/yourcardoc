@@ -12,8 +12,12 @@ export function AppFooter() {
           <span>{t("footer.tagline")}</span>
         </div>
         <div className="flex gap-4 text-sm text-muted-foreground">
-          <Link to="/pricing" className="hover:text-foreground">{t("nav.pricing")}</Link>
-          <Link to="/faq" className="hover:text-foreground">{t("nav.faq")}</Link>
+          <Link to="/pricing" className="hover:text-foreground">
+            {t("nav.pricing")}
+          </Link>
+          <Link to="/faq" className="hover:text-foreground">
+            {t("nav.faq")}
+          </Link>
         </div>
       </div>
     </footer>

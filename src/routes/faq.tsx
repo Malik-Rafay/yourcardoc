@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppHeader } from "@/components/AppHeader";
 import { AppFooter } from "@/components/AppFooter";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/faq")({
@@ -10,7 +15,10 @@ export const Route = createFileRoute("/faq")({
       { title: "FAQ — AutoDoctor AI" },
       { name: "description", content: "Answers to common questions about AutoDoctor AI." },
       { property: "og:title", content: "AutoDoctor AI FAQ" },
-      { property: "og:description", content: "How accurate is AI diagnosis? Which cars are supported? Is my data private?" },
+      {
+        property: "og:description",
+        content: "How accurate is AI diagnosis? Which cars are supported? Is my data private?",
+      },
     ],
   }),
   component: FaqPage,
@@ -36,7 +44,9 @@ function FaqPage() {
           <Accordion type="single" collapsible className="mt-8">
             {FAQS.map((f, i) => (
               <AccordionItem key={i} value={`q-${i}`}>
-                <AccordionTrigger className="text-left font-display text-base">{f.q}</AccordionTrigger>
+                <AccordionTrigger className="text-left font-display text-base">
+                  {f.q}
+                </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">{f.a}</AccordionContent>
               </AccordionItem>
             ))}

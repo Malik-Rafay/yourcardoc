@@ -38,20 +38,35 @@ function ForgotPage() {
           <h1 className="font-display text-2xl font-bold">Reset password</h1>
           <p className="mt-1 text-sm text-muted-foreground">We'll email you a reset link.</p>
           {sent ? (
-            <p className="mt-6 rounded-lg bg-primary/10 p-4 text-sm">If an account exists for <span className="font-medium">{email}</span>, a reset link is on its way.</p>
+            <p className="mt-6 rounded-lg bg-primary/10 p-4 text-sm">
+              If an account exists for <span className="font-medium">{email}</span>, a reset link is
+              on its way.
+            </p>
           ) : (
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </div>
-              <Button type="submit" disabled={loading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              >
                 {loading ? "Sending…" : "Send reset link"}
               </Button>
             </form>
           )}
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            <Link to="/login" className="text-primary hover:underline">Back to login</Link>
+            <Link to="/login" className="text-primary hover:underline">
+              Back to login
+            </Link>
           </p>
         </div>
       </main>
