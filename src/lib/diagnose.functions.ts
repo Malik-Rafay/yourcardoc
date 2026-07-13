@@ -54,21 +54,20 @@ const LANG_NAMES: Record<string, string> = {
   fr: "French",
 };
 
-function looksLikeOpenAIKey(value?: string): value is string {
-  return typeof value === "string" && value.startsWith("sk-");
+// Unified helper to guarantee we extract whichever key name is populated in Vercel/Local environment variables
+function getActiveApiKey(): string {
+  const key = process.env.OPENAI_API_KEY || process.env.LOVABLE_API_KEY || process.env.VITE_OPENAI_API_KEY || process.env.VITE_LOVABLE_API_KEY;
+  if (!key) {
+    console.error("AI Configuration Error: No API keys discovered in environment variables.");
+    throw new Error("AI is not configured.");
+  }
+  return key;
 }
 
 export const runDiagnosis = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<DiagnosisResult> => {
-    const key =
-    process.env.OPENAI_API_KEY
-
-    if (!key) {
-      console.error("AI key missing: OPENAI_API_KEY is undefined.");
-      throw new Error("AI is not configured.");
-    }
-
+    const key = getActiveApiKey();
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("gpt-4o");
 
@@ -121,7 +120,6 @@ Respond ONLY with valid JSON (no markdown, no code fences) matching this schema 
     try {
       parsed = JSON.parse(cleaned);
     } catch {
-      // attempt to extract first JSON object
       const match = cleaned.match(/\{[\s\S]*\}/);
       if (!match) throw new Error("AI returned an invalid response.");
       parsed = JSON.parse(match[0]);
@@ -139,23 +137,17 @@ const ExplainInput = z.object({
 export const explainStep = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ExplainInput.parse(input))
   .handler(async ({ data }): Promise<{ detail: string }> => {
-    const key =
-      process.env.LOVABLE_API_KEY ||
-      process.env.OPENAI_API_KEY ||
-      process.env.VITE_LOVABLE_API_KEY ||
-      process.env.VITE_OPENAI_API_KEY;
-    if (!key) {
-      console.error("AI key missing: LOVABLE_API_KEY, OPENAI_API_KEY, VITE_LOVABLE_API_KEY, and VITE_OPENAI_API_KEY are all undefined.");
-      throw new Error("AI is not configured.");
-    }
+    const key = getActiveApiKey();
     const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway(looksLikeOpenAIKey(key) ? "gpt-4o" : "google/gemini-3-flash-preview");
+    const model = gateway("gpt-4o"); // Enforces direct OpenAI structure cleanly
+    
     const langName = LANG_NAMES[data.language] ?? "English";
     const prompt = `Vehicle: ${data.vehicle}. A user is stuck on this repair step:
 Title: ${data.stepTitle}
 Instruction: ${data.stepInstruction}
 
 Write a detailed, beginner-friendly walkthrough in ${langName} (5–10 short paragraphs) explaining exactly how to perform this step safely. Include tool handling, common mistakes, what success looks like, and what to do if something doesn't fit. Plain text only, no markdown.`;
+    
     let detailText: string;
     try {
       const res = await generateText({ model, prompt });
@@ -172,9 +164,9 @@ const ImageInput = z.object({ prompt: z.string().min(3).max(500) });
 export const generateImage = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ImageInput.parse(input))
   .handler(async ({ data }): Promise<{ dataUrl: string }> => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("AI is not configured.");
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+    const key = getActiveApiKey(); // Uses unified fallback structure instead of crashing without LOVABLE_API_KEY
+    
+    const res = await fetch("[https://ai.gateway.lovable.dev/v1/images/generations](https://ai.gateway.lovable.dev/v1/images/generations)", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${key}`,

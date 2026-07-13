@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -15,6 +15,8 @@ import {
   Wrench,
   Youtube,
   HelpCircle,
+  LocateFixed,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,6 +97,10 @@ function DiagnosePage() {
   const [stepLoading, setStepLoading] = useState<Record<number, boolean>>({});
   const [stepDetails, setStepDetails] = useState<Record<number, string>>({});
   const [stepDetailLoading, setStepDetailLoading] = useState<Record<number, boolean>>({});
+  const [locationStatus, setLocationStatus] = useState<"idle" | "loading" | "ready" | "denied" | "unsupported">("idle");
+  const [locationError, setLocationError] = useState("");
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapQuery, setMapQuery] = useState("");
 
   useEffect(() => {
     const p = profileQ.data;
@@ -105,6 +111,13 @@ function DiagnosePage() {
     if (!mileage && p.default_mileage) setMileage(p.default_mileage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileQ.data]);
+
+  useEffect(() => {
+    if (!result) return;
+    const problem = result.diagnosis.replace(/[^a-zA-Z0-9\s-]/g, " ").trim();
+    const query = `mechanic for ${problem || "car repair"}`.trim();
+    setMapQuery(query);
+  }, [result]);
 
   const diagnose = useServerFn(runDiagnosis);
   const explain = useServerFn(explainStep);
@@ -196,6 +209,36 @@ function DiagnosePage() {
 
   const canSubmit = year && make && model && symptoms.length > 3 && !mutation.isPending;
   const sym = currencySymbol(currency);
+
+  const mapsEmbedUrl = useMemo(() => {
+    const query = encodeURIComponent(mapQuery || "nearby mechanic");
+    if (userCoords) {
+      return `https://www.google.com/maps?q=${query}+near+${userCoords.lat},${userCoords.lng}&output=embed`;
+    }
+    return `https://www.google.com/maps?q=${query}&output=embed`;
+  }, [mapQuery, userCoords]);
+
+  function requestNearbyMechanics() {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setLocationStatus("unsupported");
+      setLocationError("Geolocation is not supported in this browser.");
+      return;
+    }
+
+    setLocationStatus("loading");
+    setLocationError("");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setLocationStatus("ready");
+      },
+      (error) => {
+        setLocationStatus("denied");
+        setLocationError(error.message || "Location access was blocked.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -516,6 +559,52 @@ function DiagnosePage() {
               </div>
             </div>
           )}
+
+          <div className="mt-6 rounded-xl border border-border/60 bg-background/40 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                  <MapPin className="h-4 w-4" /> {t("diag.nearbyMechanics")}
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{t("diag.nearbyMechanics.desc")}</p>
+              </div>
+              <Button type="button" variant="outline" onClick={requestNearbyMechanics}>
+                <LocateFixed className="mr-2 h-4 w-4" /> {t("diag.useMyLocation")}
+              </Button>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-border/60 bg-card/70 p-3">
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">
+                  {mapQuery || t("diag.nearbyMechanics")}
+                </span>
+                {locationStatus === "loading" && <span>{t("diag.locating")}</span>}
+                {locationStatus === "ready" && userCoords && (
+                  <span>
+                    {t("diag.locationFound")}: {userCoords.lat.toFixed(3)}, {userCoords.lng.toFixed(3)}
+                  </span>
+                )}
+                {locationStatus === "denied" && locationError && <span>{locationError}</span>}
+                {locationStatus === "unsupported" && <span>{locationError}</span>}
+              </div>
+              <iframe
+                title={t("diag.nearbyMechanics")}
+                src={mapsEmbedUrl}
+                className="h-72 w-full rounded-lg border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => openExternal(mapsEmbedUrl)}>
+                {t("diag.openMaps")}
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => openExternal(`https://www.google.com/maps/search/${encodeURIComponent(mapQuery || "mechanic near me")}`)}>
+                {t("diag.searchMaps")}
+              </Button>
+            </div>
+          </div>
 
           {result.additionalNotes && (
             <p className="mt-6 rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">
