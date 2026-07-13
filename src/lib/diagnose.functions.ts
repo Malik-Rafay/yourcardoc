@@ -182,7 +182,7 @@ export const generateImage = createServerFn({ method: "POST" })
       const t = await res.text().catch(() => "");
       throw new Error(`Image generation failed: ${res.status} ${t.slice(0, 200)}`);
     }
-    const json = (await res.json()) as { data?: { b64_json?: string }[] };
+    const json = (await res.json()) as { data?: { b64_json?: string }[]  };
     const b64 = json.data?.[0]?.b64_json;
     if (!b64) throw new Error("No image returned");
     return { dataUrl: `data:image/png;base64,${b64}` };
