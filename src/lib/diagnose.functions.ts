@@ -184,41 +184,21 @@ const ImageInput = z.object({ prompt: z.string().min(3).max(500) });
 export const generateImage = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ImageInput.parse(input))
   .handler(async ({ data }): Promise<{ dataUrl: string }> => {
-    const key = getActiveApiKey(); // Safeguards key retrieval
-
     try {
-      // 1. Direct call to official OpenAI Image API
-      const res = await fetch("https://api.openai.com/v1/images/generations", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "dall-e-3",
-          prompt: data.prompt,
-          n: 1,
-          size: "1024x1024",
-          response_format: "b64_json", // Encodes binary image into text string matching your client expectations
-        }),
-      });
+      // Pollinations AI generates beautiful, free Flux/Stable Diffusion images on-the-fly!
+      const encodedPrompt = encodeURIComponent(data.prompt + ", photorealistic, high quality, 16:9 aspect ratio");
+      const imageUrl = `https://image.pollinations.ai/p/${encodedPrompt}?width=1024&height=576&nologo=true&seed=${Math.floor(Math.random() * 100000)}`;
 
-      if (!res.ok) {
-        const t = await res.text().catch(() => "");
-        console.warn(`DALL-E 3 image generation failed: ${res.status} ${t.slice(0, 200)}`);
-        // Fallback to placeholder if rate-limits, safety, or billing block the request
-        return { dataUrl: createPlaceholderIllustration(data.prompt) };
-      }
+      // Fetch the image and convert it to base64 so your frontend receives it in the exact same format as before
+      const response = await fetch(imageUrl);
+      if (!response.ok) throw new Error("Free image generation service failed");
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString('base64');
 
-      const json = (await res.json()) as { data?: { b64_json?: string }[] };
-      const b64 = json.data?.[0]?.b64_json;
-      if (!b64) {
-        console.warn("DALL-E returned no image payload.");
-        return { dataUrl: createPlaceholderIllustration(data.prompt) };
-      }
-      return { dataUrl: `data:image/png;base64,${b64}` };
+      return { dataUrl: `data:image/jpeg;base64,${base64}` };
     } catch (error) {
-      console.warn("Exception during OpenAI image generation:", error);
+      console.warn("Free image fallback failed, loading fallback vector illustration.", error);
       return { dataUrl: createPlaceholderIllustration(data.prompt) };
     }
   });
