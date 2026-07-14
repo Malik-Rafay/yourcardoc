@@ -64,6 +64,26 @@ function getActiveApiKey(): string {
   return key;
 }
 
+function createPlaceholderIllustration(prompt: string): string {
+  const safePrompt = prompt.replace(/[<>]/g, "").slice(0, 140);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+      <rect width="1200" height="800" fill="#0f172a" />
+      <rect x="120" y="140" width="960" height="520" rx="32" fill="#111827" stroke="#38bdf8" stroke-width="4" />
+      <rect x="300" y="260" width="600" height="220" rx="24" fill="#1f2937" />
+      <rect x="360" y="312" width="140" height="90" rx="16" fill="#f59e0b" />
+      <rect x="540" y="312" width="180" height="90" rx="16" fill="#34d399" />
+      <rect x="750" y="312" width="90" height="90" rx="16" fill="#f43f5e" />
+      <circle cx="330" cy="520" r="54" fill="#22c55e" />
+      <circle cx="900" cy="520" r="54" fill="#3b82f6" />
+      <path d="M290 600 C400 520, 800 520, 910 600" stroke="#f8fafc" stroke-width="12" fill="none" stroke-linecap="round" />
+      <text x="600" y="180" text-anchor="middle" fill="#f8fafc" font-size="34" font-family="Segoe UI, Arial, sans-serif">Illustration preview</text>
+      <text x="600" y="225" text-anchor="middle" fill="#94a3b8" font-size="22" font-family="Segoe UI, Arial, sans-serif">${safePrompt || "Vehicle repair guidance"}</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 export const runDiagnosis = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<DiagnosisResult> => {
@@ -164,26 +184,42 @@ const ImageInput = z.object({ prompt: z.string().min(3).max(500) });
 export const generateImage = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ImageInput.parse(input))
   .handler(async ({ data }): Promise<{ dataUrl: string }> => {
-    const key = getActiveApiKey(); // Uses unified fallback structure instead of crashing without LOVABLE_API_KEY
-    
-    const res = await fetch("[https://ai.gateway.lovable.dev/v1/images/generations](https://ai.gateway.lovable.dev/v1/images/generations)", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [{ role: "user", content: data.prompt }],
-        modalities: ["image", "text"],
-      }),
-    });
-    if (!res.ok) {
-      const t = await res.text().catch(() => "");
-      throw new Error(`Image generation failed: ${res.status} ${t.slice(0, 200)}`);
+    const key = process.env.OPENAI_API_KEY || process.env.LOVABLE_API_KEY || process.env.VITE_OPENAI_API_KEY || process.env.VITE_LOVABLE_API_KEY;
+
+    if (!key) {
+      console.warn("Image generation unavailable: no API key. Returning local illustration placeholder.");
+      return { dataUrl: createPlaceholderIllustration(data.prompt) };
     }
-    const json = (await res.json()) as { data?: { b64_json?: string }[]  };
-    const b64 = json.data?.[0]?.b64_json;
-    if (!b64) throw new Error("No image returned");
-    return { dataUrl: `data:image/png;base64,${b64}` };
+
+    try {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [{ role: "user", content: data.prompt }],
+          modalities: ["image", "text"],
+        }),
+      });
+
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        console.warn(`Image generation failed: ${res.status} ${t.slice(0, 200)}`);
+        return { dataUrl: createPlaceholderIllustration(data.prompt) };
+      }
+
+      const json = (await res.json()) as { data?: { b64_json?: string }[] };
+      const b64 = json.data?.[0]?.b64_json;
+      if (!b64) {
+        console.warn("Image generation returned no image payload.");
+        return { dataUrl: createPlaceholderIllustration(data.prompt) };
+      }
+      return { dataUrl: `data:image/png;base64,${b64}` };
+    } catch (error) {
+      console.warn("Image generation threw an exception.", error);
+      return { dataUrl: createPlaceholderIllustration(data.prompt) };
+    }
   });
