@@ -335,17 +335,19 @@ function DiagnosePage() {
           id="diagnosis-result"
         >
           {vehicleImg && (
-            <div className="mb-6 overflow-hidden rounded-xl border border-border/60">
-              <img
-                src={vehicleImg}
-                alt={`${year} ${make} ${model}`}
-                className="h-56 w-full object-cover sm:h-72"
-              />
-              <div className="bg-background/60 px-4 py-2 text-xs text-muted-foreground">
-                {year} {make} {model}
-              </div>
-            </div>
-          )}
+          <div className="mb-6 overflow-hidden rounded-xl border border-border/60 bg-zinc-950">
+            <div className="w-full aspect-video">
+            <img
+            src={vehicleImg}
+            alt={`${year} ${make} ${model}`}
+            className="h-full w-full object-contain"
+            />
+          </div>
+    <div className="bg-background/60 px-4 py-2 text-xs text-muted-foreground border-t border-border/60">
+      {year} {make} {model}
+    </div>
+  </div>
+)}
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-primary">
