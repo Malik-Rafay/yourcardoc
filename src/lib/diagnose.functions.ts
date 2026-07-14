@@ -184,42 +184,41 @@ const ImageInput = z.object({ prompt: z.string().min(3).max(500) });
 export const generateImage = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ImageInput.parse(input))
   .handler(async ({ data }): Promise<{ dataUrl: string }> => {
-    const key = process.env.OPENAI_API_KEY || process.env.LOVABLE_API_KEY || process.env.VITE_OPENAI_API_KEY || process.env.VITE_LOVABLE_API_KEY;
-
-    if (!key) {
-      console.warn("Image generation unavailable: no API key. Returning local illustration placeholder.");
-      return { dataUrl: createPlaceholderIllustration(data.prompt) };
-    }
+    const key = getActiveApiKey(); // Safeguards key retrieval
 
     try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      // 1. Direct call to official OpenAI Image API
+      const res = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${key}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image",
-          messages: [{ role: "user", content: data.prompt }],
-          modalities: ["image", "text"],
+          model: "dall-e-3",
+          prompt: data.prompt,
+          n: 1,
+          size: "1024x1024",
+          response_format: "b64_json", // Encodes binary image into text string matching your client expectations
         }),
       });
 
       if (!res.ok) {
         const t = await res.text().catch(() => "");
-        console.warn(`Image generation failed: ${res.status} ${t.slice(0, 200)}`);
+        console.warn(`DALL-E 3 image generation failed: ${res.status} ${t.slice(0, 200)}`);
+        // Fallback to placeholder if rate-limits, safety, or billing block the request
         return { dataUrl: createPlaceholderIllustration(data.prompt) };
       }
 
       const json = (await res.json()) as { data?: { b64_json?: string }[] };
       const b64 = json.data?.[0]?.b64_json;
       if (!b64) {
-        console.warn("Image generation returned no image payload.");
+        console.warn("DALL-E returned no image payload.");
         return { dataUrl: createPlaceholderIllustration(data.prompt) };
       }
       return { dataUrl: `data:image/png;base64,${b64}` };
     } catch (error) {
-      console.warn("Image generation threw an exception.", error);
+      console.warn("Exception during OpenAI image generation:", error);
       return { dataUrl: createPlaceholderIllustration(data.prompt) };
     }
   });
