@@ -185,18 +185,16 @@ export const generateImage = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ImageInput.parse(input))
   .handler(async ({ data }): Promise<{ dataUrl: string }> => {
     try {
-      // Pollinations AI generates beautiful, free Flux/Stable Diffusion images on-the-fly!
-      const encodedPrompt = encodeURIComponent(data.prompt + ", photorealistic, high quality, 16:9 aspect ratio");
-      const imageUrl = `https://image.pollinations.ai/p/${encodedPrompt}?width=1024&height=576&nologo=true&seed=${Math.floor(Math.random() * 100000)}`;
-
-      // Fetch the image and convert it to base64 so your frontend receives it in the exact same format as before
-      const response = await fetch(imageUrl);
-      if (!response.ok) throw new Error("Free image generation service failed");
+      // Clean up special characters from prompt
+      const cleanPrompt = data.prompt.replace(/[^a-zA-Z0-9\s,.-]/g, ""); 
       
-      const arrayBuffer = await response.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString('base64');
+      // REMOVED "16:9" text from prompt to prevent the AI from rendering a squished car
+      const encodedPrompt = encodeURIComponent(cleanPrompt + ", photorealistic, highly detailed, automotive photography, professional studio lighting");
+      
+      const seed = Math.floor(Math.random() * 1000000);
+      const imageUrl = `https://image.pollinations.ai/p/${encodedPrompt}?width=1024&height=576&nologo=true&seed=${seed}`;
 
-      return { dataUrl: `data:image/jpeg;base64,${base64}` };
+      return { dataUrl: imageUrl };
     } catch (error) {
       console.warn("Free image fallback failed, loading fallback vector illustration.", error);
       return { dataUrl: createPlaceholderIllustration(data.prompt) };

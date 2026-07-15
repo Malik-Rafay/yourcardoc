@@ -129,18 +129,39 @@ function DiagnosePage() {
         data: { year, make, model, mileage, symptoms, tags, language, region, currency },
       });
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setResult(data);
       setVehicleImg(null);
       setStepImgs({});
       setStepDetails({});
-      // fire-and-forget vehicle hero image
+      
       if (data.vehicleImagePrompt) {
         genImg({ data: { prompt: data.vehicleImagePrompt } })
           .then((r) => setVehicleImg(r.dataUrl))
           .catch(() => {
-            /* silent */
           });
+      }
+
+      try {
+        const { error } = await supabase.from("diagnoses").insert({
+          user_id: user.id,
+          year,
+          make,
+          model,
+          mileage,
+          symptoms,
+          tags,
+          result: data as never,
+          severity: data.severity,
+        });
+
+        if (error) {
+          console.error("Auto-save to history failed:", error.message);
+        } else {
+          qc.invalidateQueries({ queryKey: ["diagnoses"] });
+        }
+      } catch (err) {
+        console.error("Failed to execute database write:", err);
       }
     },
     onError: (e: unknown) => {
@@ -335,16 +356,16 @@ function DiagnosePage() {
           id="diagnosis-result"
         >
           {vehicleImg && (
-          <div className="mb-6 overflow-hidden rounded-xl border border-border/60 bg-zinc-950">
-            <div className="w-full aspect-video">
-            <img
-            src={vehicleImg}
-            alt={`${year} ${make} ${model}`}
-            className="h-full w-full object-contain"
-            />
-          </div>
-    <div className="bg-background/60 px-4 py-2 text-xs text-muted-foreground border-t border-border/60">
-      {year} {make} {model}
+  <div className="mb-6 w-full overflow-hidden rounded-xl border border-border/60 bg-zinc-950 aspect-video relative">
+    <img
+      src={vehicleImg}
+      alt={`${year} ${make} ${model}`}
+      className="absolute inset-0 w-full h-full object-cover object-center"
+    />
+    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 py-3">
+      <span className="text-xs font-semibold tracking-wider text-white uppercase">
+        {year} {make} {model}
+      </span>
     </div>
   </div>
 )}
