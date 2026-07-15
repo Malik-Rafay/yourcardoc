@@ -63,14 +63,23 @@ function shopUrl(q: string) {
 function youtubeUrl(q: string) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 }
-function openExternal(url: string) {
-  // Use window.open so the click works inside sandboxed previews / accordions
-  // that may otherwise swallow anchor navigation.
-  const w = window.open(url, "_blank", "noopener,noreferrer");
-  if (!w) {
-    // popup blocked — fall back to top-level navigation
-    window.location.href = url;
+function openExternal(e: React.MouseEvent<HTMLButtonElement> | undefined, url: string) {
+  // Prevent any form submissions, page reloads, or accordion collapses
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
   }
+
+  // Create a temporary link element to trick the browser's blocker
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  
+  // Trigger the click and clean up
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function DiagnosePage() {
@@ -485,9 +494,7 @@ function DiagnosePage() {
                           type="button"
                           size="sm"
                           variant="ghost"
-                          onClick={() =>
-                            openExternal(youtubeUrl(`${year} ${make} ${model} ${s.searchQuery}`))
-                          }
+                          onClick={(e) => openExternal(e, youtubeUrl(`${year} ${make} ${model} ${s.searchQuery}`))}
                         >
                           <Youtube className="mr-2 h-3 w-3" /> {t("diag.watchVideo")}
                         </Button>
@@ -519,7 +526,7 @@ function DiagnosePage() {
                       size="sm"
                       variant="outline"
                       className="print:hidden"
-                      onClick={() => openExternal(shopUrl(tool.searchQuery))}
+                      onClick={(e) => openExternal(e, shopUrl(tool.searchQuery))}
                     >
                       {t("diag.buy")} <ExternalLink className="ml-1 h-3 w-3" />
                     </Button>
@@ -549,7 +556,7 @@ function DiagnosePage() {
                       size="sm"
                       variant="outline"
                       className="print:hidden"
-                      onClick={() => openExternal(shopUrl(p.searchQuery || p.part))}
+                      onClick={(e) => openExternal(e, shopUrl(p.searchQuery || p.part))}
                     >
                       {t("diag.buy")} <ExternalLink className="ml-1 h-3 w-3" />
                     </Button>
@@ -567,7 +574,7 @@ function DiagnosePage() {
                   <button
                     key={i}
                     type="button"
-                    onClick={() => openExternal(youtubeUrl(q))}
+                    onClick={(e) => openExternal(e, youtubeUrl(q))}
                     className="group flex flex-col gap-2 rounded-lg border border-border/60 bg-background/40 p-3 text-left transition-colors hover:border-primary/50"
                   >
                     <div className="flex aspect-video items-center justify-center rounded-md bg-gradient-to-br from-red-500/20 to-red-900/40">
@@ -620,10 +627,10 @@ function DiagnosePage() {
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={() => openExternal(mapsEmbedUrl)}>
+              <Button type="button" variant="outline" onClick={(e) => openExternal(e, mapsEmbedUrl)}>
                 {t("diag.openMaps")}
               </Button>
-              <Button type="button" variant="ghost" onClick={() => openExternal(`https://www.google.com/maps/search/${encodeURIComponent(mapQuery || "mechanic near me")}`)}>
+              <Button type="button" variant="ghost" onClick={(e) => openExternal(e, `https://www.google.com/maps/search/${encodeURIComponent(mapQuery || "mechanic near me")}`)}>
                 {t("diag.searchMaps")}
               </Button>
             </div>
