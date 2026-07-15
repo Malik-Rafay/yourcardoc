@@ -89,7 +89,7 @@ export const runDiagnosis = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<DiagnosisResult> => {
     const key = getActiveApiKey();
     const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("gpt-4o");
+    const model = gateway("gpt-4o-mini");
 
     const langName = LANG_NAMES[data.language] ?? "English";
     const prompt = `You are an expert automotive mechanic AI. The user has a ${data.year} ${data.make} ${data.model} with ${data.mileage} km/miles. They describe these symptoms: "${data.symptoms}". Additional tags: ${data.tags.join(", ") || "none"}.
@@ -99,7 +99,7 @@ IMPORTANT:
 - The user is in region: ${data.region}. Price estimates MUST reflect typical parts AND labor costs for that region.
 - Use ${data.currency} for currency. Provide realistic priceLow/priceHigh numbers (not symbolic).
 - searchQuery fields MUST be in English (for product/video search engines), and should include the exact car: "${data.year} ${data.make} ${data.model}" where relevant.
-- imagePrompt fields MUST be in English and describe a clear, photorealistic close-up illustration of what the user does in that step.
+- imagePrompt fields MUST be in English and written as photographic prompts (e.g., "A clean, detailed DSLR close-up photograph of a [part] on a ${data.year} ${data.make} ${data.model}, workshop setting, realistic lighting, mechanical precision, no CGI, no text overlays").
 
 Respond ONLY with valid JSON (no markdown, no code fences) matching this schema exactly:
 {
@@ -119,7 +119,7 @@ Respond ONLY with valid JSON (no markdown, no code fences) matching this schema 
 
 - diySteps: 4–10 concrete, safety-aware steps. "title" is short (max 8 words). "instruction" is 1–3 sentences.
 - youtubeQueries: 3–5 distinct YouTube search queries that would surface helpful tutorials for THIS specific car and problem.
-- vehicleImagePrompt: a one-sentence prompt describing the user's car (year, make, model, common color, 3/4 angle, studio lighting, photorealistic) for an image generator.`;
+- vehicleImagePrompt: A single descriptive sentence optimized for a high-fidelity camera shot: "A sharp, detailed DSLR automotive photograph of a ${data.year} ${data.make} ${data.model} parked in a clean modern workshop, realistic lighting, photorealistic, 8k resolution, metallic paint reflections."`;
 
     let text: string;
     try {
@@ -159,7 +159,7 @@ export const explainStep = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ detail: string }> => {
     const key = getActiveApiKey();
     const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("gpt-4o"); // Enforces direct OpenAI structure cleanly
+    const model = gateway("gpt-4o-mini"); // Enforces direct OpenAI structure cleanly
     
     const langName = LANG_NAMES[data.language] ?? "English";
     const prompt = `Vehicle: ${data.vehicle}. A user is stuck on this repair step:
@@ -184,19 +184,46 @@ const ImageInput = z.object({ prompt: z.string().min(3).max(500) });
 export const generateImage = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ImageInput.parse(input))
   .handler(async ({ data }): Promise<{ dataUrl: string }> => {
+    const falKey = process.env.FAL_KEY || process.env.VITE_FAL_KEY;
+    if (!falKey) {
+      console.warn("FAL_KEY is missing. Falling back to SVG illustrations.");
+      return { dataUrl: createPlaceholderIllustration(data.prompt) };
+    }
+
     try {
-      // Clean up special characters from prompt
+      // Clean up special characters from the prompt
       const cleanPrompt = data.prompt.replace(/[^a-zA-Z0-9\s,.-]/g, ""); 
-      
-      // REMOVED "16:9" text from prompt to prevent the AI from rendering a squished car
-      const encodedPrompt = encodeURIComponent(cleanPrompt + ", photorealistic, highly detailed, automotive photography, professional studio lighting");
-      
-      const seed = Math.floor(Math.random() * 1000000);
-      const imageUrl = `https://image.pollinations.ai/p/${encodedPrompt}?width=1024&height=576&nologo=true&seed=${seed}`;
+      const enhancedPrompt = `${cleanPrompt}, highly detailed DSLR automotive photography, sharp focus, realistic metallic textures, garage workshop setting, no text overlays, no watermarks`;
+
+      const response = await fetch("[https://queue.fal.run/fal-ai/flux/schnell](https://queue.fal.run/fal-ai/flux/schnell)", {
+        method: "POST",
+        headers: {
+          "Authorization": `Key ${falKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: enhancedPrompt,
+          image_size: "landscape_16_9",
+          num_inference_steps: 4,
+          enable_safety_checker: true,
+          sync_mode: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Fal.ai API error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const imageUrl = result.images?.[0]?.url;
+
+      if (!imageUrl) {
+        throw new Error("Empty image payload from Fal.ai");
+      }
 
       return { dataUrl: imageUrl };
     } catch (error) {
-      console.warn("Free image fallback failed, loading fallback vector illustration.", error);
+      console.warn("Fal.ai image generation failed. Using SVG fallback.", error);
       return { dataUrl: createPlaceholderIllustration(data.prompt) };
     }
   });
