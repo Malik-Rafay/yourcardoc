@@ -57,6 +57,26 @@ const TAG_KEYS = [
   ["smoke", "tags.smoke"],
 ] as const;
 
+// Finland's top selling, hybrid, EV and popular pre-owned car brands and models
+const CAR_DATA: Record<string, string[]> = {
+  "Toyota": ["Corolla", "Yaris", "Yaris Cross", "RAV4", "C-HR", "bZ4X", "Camry", "Avensis"],
+  "Volvo": ["XC60", "XC40", "V60", "V90", "EX30", "S60", "EX90"],
+  "Skoda": ["Octavia", "Enyaq", "Elroq", "Superb", "Kodiaq", "Fabia", "Karoq"],
+  "Volkswagen": ["Golf", "Passat", "ID.4", "ID.3", "ID.Buzz", "Tiguan", "T-Cross", "Polo"],
+  "Kia": ["Ceed", "EV6", "Sportage", "Niro", "Sorento", "Rio", "EV9"],
+  "Tesla": ["Model Y", "Model 3", "Model S", "Model X"],
+  "Nissan": ["Qashqai", "Leaf", "Ariya", "X-Trail", "Micra"],
+  "Mercedes-Benz": ["C-Class", "E-Class", "A-Class", "GLC", "EQE", "EQS", "Sprinter"],
+  "BMW": ["3 Series", "5 Series", "i4", "X5", "X3", "iX3", "iX"],
+  "Audi": ["A4", "A6", "Q4 e-tron", "Q5", "A3", "e-tron"],
+  "Ford": ["Focus", "Fiesta", "Mondeo", "Kuga", "Mustang Mach-E", "Transit"],
+  "Hyundai": ["Ioniq 5", "Ioniq 6", "Tucson", "Kona", "i30", "i20"],
+  "Opel": ["Astra", "Corsa", "Insignia", "Mokka", "Grandland"],
+  "Peugeot": ["208", "308", "2008", "3008", "5008"],
+  "Renault": ["Clio", "Megane", "Captur", "Zoe"],
+  "Polestar": ["Polestar 2", "Polestar 3", "Polestar 4"]
+};
+
 function shopUrl(q: string) {
   return `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(q)}`;
 }
@@ -95,8 +115,17 @@ function DiagnosePage() {
   });
 
   const [year, setYear] = useState("");
-  const [make, setMake] = useState("");
-  const [model, setModel] = useState("");
+  
+  // New States to manage select options and fallback custom text inputs
+  const [selectedMake, setSelectedMake] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [customMake, setCustomMake] = useState("");
+  const [customModel, setCustomModel] = useState("");
+
+  // Resolving final Make and Model strings dynamically
+  const make = selectedMake === "other" ? customMake : selectedMake;
+  const model = selectedModel === "other" ? customModel : selectedModel;
+
   const [mileage, setMileage] = useState("");
   const [symptoms, setSymptoms] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -115,8 +144,28 @@ function DiagnosePage() {
     const p = profileQ.data;
     if (!p) return;
     if (!year && p.default_year) setYear(p.default_year);
-    if (!make && p.default_make) setMake(p.default_make);
-    if (!model && p.default_model) setModel(p.default_model);
+    
+    // Set Make dropdown/input correctly based on profile
+    if (p.default_make) {
+      if (CAR_DATA[p.default_make]) {
+        setSelectedMake(p.default_make);
+      } else {
+        setSelectedMake("other");
+        setCustomMake(p.default_make);
+      }
+    }
+
+    // Set Model dropdown/input correctly based on profile
+    if (p.default_model) {
+      const modelsForMake = p.default_make ? CAR_DATA[p.default_make] : [];
+      if (modelsForMake?.includes(p.default_model)) {
+        setSelectedModel(p.default_model);
+      } else {
+        setSelectedModel("other");
+        setCustomModel(p.default_model);
+      }
+    }
+
     if (!mileage && p.default_mileage) setMileage(p.default_mileage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileQ.data]);
@@ -291,12 +340,92 @@ function DiagnosePage() {
           <Field label={t("diag.year")}>
             <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2018" />
           </Field>
+
+          {/* Make Select / Input Field */}
           <Field label={t("diag.make")}>
-            <Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Toyota" />
+            {selectedMake !== "other" ? (
+              <select
+                value={selectedMake}
+                onChange={(e) => {
+                  setSelectedMake(e.target.value);
+                  setSelectedModel(""); // Clear selected model on make shift
+                }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="">Select Make</option>
+                {Object.keys(CAR_DATA).map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+                <option value="other">Other / Custom...</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  value={customMake}
+                  onChange={(e) => setCustomMake(e.target.value)}
+                  placeholder="Enter Manufacturer"
+                />
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setSelectedMake("");
+                    setCustomMake("");
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+            )}
           </Field>
+
+          {/* Model Select / Input Field */}
           <Field label={t("diag.model")}>
-            <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Corolla" />
+            {selectedMake !== "other" && selectedMake !== "" && selectedModel !== "other" ? (
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="">Select Model</option>
+                {(CAR_DATA[selectedMake] || []).map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+                <option value="other">Other / Custom...</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  value={selectedMake === "other" ? customModel : (selectedModel === "other" ? customModel : "")}
+                  onChange={(e) => {
+                    if (selectedMake === "other") {
+                      setCustomModel(e.target.value);
+                    } else {
+                      setSelectedModel("other");
+                      setCustomModel(e.target.value);
+                    }
+                  }}
+                  disabled={!selectedMake}
+                  placeholder={selectedMake ? "Enter Model" : "Select a Make first"}
+                />
+                {selectedModel === "other" && selectedMake !== "other" && (
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => {
+                      setSelectedModel("");
+                      setCustomModel("");
+                    }}
+                  >
+                    Reset
+                  </Button>
+                )}
+              </div>
+            )}
           </Field>
+
           <Field label={t("diag.mileage")}>
             <Input
               value={mileage}
@@ -365,19 +494,19 @@ function DiagnosePage() {
           id="diagnosis-result"
         >
           {vehicleImg && (
-  <div className="mb-6 w-full overflow-hidden rounded-xl border border-border/60 bg-zinc-950 aspect-video relative">
-    <img
-      src={vehicleImg}
-      alt={`${year} ${make} ${model}`}
-      className="absolute inset-0 w-full h-full object-cover object-center"
-    />
-    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 py-3">
-      <span className="text-xs font-semibold tracking-wider text-white uppercase">
-        {year} {make} {model}
-      </span>
-    </div>
-  </div>
-)}
+            <div className="mb-6 w-full overflow-hidden rounded-xl border border-border/60 bg-zinc-950 aspect-video relative">
+              <img
+                src={vehicleImg}
+                alt={`${year} ${make} ${model}`}
+                className="absolute inset-0 w-full h-full object-cover object-center"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 py-3">
+                <span className="text-xs font-semibold tracking-wider text-white uppercase">
+                  {year} {make} {model}
+                </span>
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-primary">
@@ -672,4 +801,4 @@ function InfoBox({ label, value }: { label: string; value: string }) {
       <div className="mt-1 font-display text-lg font-semibold">{value}</div>
     </div>
   );
-};
+}
