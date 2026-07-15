@@ -672,4 +672,4 @@ function InfoBox({ label, value }: { label: string; value: string }) {
       <div className="mt-1 font-display text-lg font-semibold">{value}</div>
     </div>
   );
-}
+};
