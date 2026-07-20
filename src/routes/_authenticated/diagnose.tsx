@@ -165,12 +165,20 @@ function DiagnosePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileQ.data]);
 
+  // SOLUTION 1 IMPLEMENTATION: Standardized English search query for Google Maps
   useEffect(() => {
     if (!result) return;
-    const problem = result.diagnosis.replace(/[^a-zA-Z0-9\s-]/g, " ").trim();
-    const query = `mechanic for ${problem || "car repair"}`.trim();
+    
+    const carInfo = `${year} ${make} ${model}`.trim();
+    const cleanDiagnosis = result.diagnosis.replace(/[^a-zA-Z0-9\s-]/g, " ").trim();
+    
+    // Construct a clean, standardized English search query that Google Maps understands globally
+    const query = carInfo 
+      ? `auto repair shop for ${carInfo}`
+      : `car repair shop ${cleanDiagnosis.slice(0, 30)}`.trim();
+
     setMapQuery(query);
-  }, [result]);
+  }, [result, year, make, model]);
 
   const diagnose = useServerFn(runDiagnosis);
   const explain = useServerFn(explainStep);
@@ -284,9 +292,9 @@ function DiagnosePage() {
   const sym = currencySymbol(currency);
 
   const mapsEmbedUrl = useMemo(() => {
-    const query = encodeURIComponent(mapQuery || "nearby mechanic");
+    const query = encodeURIComponent(mapQuery || "auto repair shop");
     if (userCoords) {
-      return `https://www.google.com/maps?q=${query}+near+${userCoords.lat},${userCoords.lng}&output=embed`;
+      return `https://www.google.com/maps?q=${query}&sll=${userCoords.lat},${userCoords.lng}&output=embed`;
     }
     return `https://www.google.com/maps?q=${query}&output=embed`;
   }, [mapQuery, userCoords]);
@@ -753,7 +761,7 @@ function DiagnosePage() {
               <Button type="button" variant="outline" onClick={(e) => openExternal(e, mapsEmbedUrl)}>
                 {t("diag.openMaps")}
               </Button>
-              <Button type="button" variant="ghost" onClick={(e) => openExternal(e, `https://www.google.com/maps/search/${encodeURIComponent(mapQuery || "mechanic near me")}`)}>
+              <Button type="button" variant="ghost" onClick={(e) => openExternal(e, `https://www.google.com/maps/search/${encodeURIComponent(mapQuery || "auto repair shop")}`)}>
                 {t("diag.searchMaps")}
               </Button>
             </div>
