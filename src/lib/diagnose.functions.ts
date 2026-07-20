@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { generateText } from "ai";
 import { z } from "zod";
+import { fal } from "@fal-ai/client";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 
 const InputSchema = z.object({
@@ -159,7 +160,7 @@ export const explainStep = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ detail: string }> => {
     const key = getActiveApiKey();
     const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("gpt-4o-mini"); // Enforces direct OpenAI structure cleanly
+    const model = gateway("gpt-4o-mini");
     
     const langName = LANG_NAMES[data.language] ?? "English";
     const prompt = `Vehicle: ${data.vehicle}. A user is stuck on this repair step:
@@ -191,31 +192,24 @@ export const generateImage = createServerFn({ method: "POST" })
     }
 
     try {
-      // Clean up special characters from the prompt
+      // Clean up special characters from prompt
       const cleanPrompt = data.prompt.replace(/[^a-zA-Z0-9\s,.-]/g, ""); 
       const enhancedPrompt = `${cleanPrompt}, highly detailed DSLR automotive photography, sharp focus, realistic metallic textures, garage workshop setting, no text overlays, no watermarks`;
 
-      const response = await fetch("https://queue.fal.run/fal-ai/flux/schnell", {
-        method: "POST",
-        headers: {
-          "Authorization": `Key ${falKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      // Configure client credentials
+      fal.config({ credentials: falKey });
+
+      // Use fal.subscribe to handle async queue polling
+      const result: any = await fal.subscribe("fal-ai/flux/schnell", {
+        input: {
           prompt: enhancedPrompt,
           image_size: "landscape_16_9",
           num_inference_steps: 4,
           enable_safety_checker: true,
-          sync_mode: true,
-        }),
+        },
       });
 
-      if (!response.ok) {
-        throw new Error(`Fal.ai API error: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      const imageUrl = result.images?.[0]?.url;
+      const imageUrl = result.data?.images?.[0]?.url || result.images?.[0]?.url;
 
       if (!imageUrl) {
         throw new Error("Empty image payload from Fal.ai");
@@ -226,4 +220,4 @@ export const generateImage = createServerFn({ method: "POST" })
       console.warn("Fal.ai image generation failed. Using SVG fallback.", error);
       return { dataUrl: createPlaceholderIllustration(data.prompt) };
     }
-  })
+  });
