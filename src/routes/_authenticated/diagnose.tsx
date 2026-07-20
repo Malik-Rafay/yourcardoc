@@ -59,22 +59,22 @@ const TAG_KEYS = [
 
 // Finland's top selling, hybrid, EV and popular pre-owned car brands and models
 const CAR_DATA: Record<string, string[]> = {
-  "Toyota": ["Corolla", "Yaris", "Yaris Cross", "RAV4", "C-HR", "bZ4X", "Camry", "Avensis"],
-  "Volvo": ["XC60", "XC40", "V60", "V90", "EX30", "S60", "EX90"],
-  "Skoda": ["Octavia", "Enyaq", "Elroq", "Superb", "Kodiaq", "Fabia", "Karoq"],
-  "Volkswagen": ["Golf", "Passat", "ID.4", "ID.3", "ID.Buzz", "Tiguan", "T-Cross", "Polo"],
-  "Kia": ["Ceed", "EV6", "Sportage", "Niro", "Sorento", "Rio", "EV9"],
-  "Tesla": ["Model Y", "Model 3", "Model S", "Model X"],
-  "Nissan": ["Qashqai", "Leaf", "Ariya", "X-Trail", "Micra"],
+  Toyota: ["Corolla", "Yaris", "Yaris Cross", "RAV4", "C-HR", "bZ4X", "Camry", "Avensis"],
+  Volvo: ["XC60", "XC40", "V60", "V90", "EX30", "S60", "EX90"],
+  Skoda: ["Octavia", "Enyaq", "Elroq", "Superb", "Kodiaq", "Fabia", "Karoq"],
+  Volkswagen: ["Golf", "Passat", "ID.4", "ID.3", "ID.Buzz", "Tiguan", "T-Cross", "Polo"],
+  Kia: ["Ceed", "EV6", "Sportage", "Niro", "Sorento", "Rio", "EV9"],
+  Tesla: ["Model Y", "Model 3", "Model S", "Model X"],
+  Nissan: ["Qashqai", "Leaf", "Ariya", "X-Trail", "Micra"],
   "Mercedes-Benz": ["C-Class", "E-Class", "A-Class", "GLC", "EQE", "EQS", "Sprinter"],
-  "BMW": ["3 Series", "5 Series", "i4", "X5", "X3", "iX3", "iX"],
-  "Audi": ["A4", "A6", "Q4 e-tron", "Q5", "A3", "e-tron"],
-  "Ford": ["Focus", "Fiesta", "Mondeo", "Kuga", "Mustang Mach-E", "Transit"],
-  "Hyundai": ["Ioniq 5", "Ioniq 6", "Tucson", "Kona", "i30", "i20"],
-  "Opel": ["Astra", "Corsa", "Insignia", "Mokka", "Grandland"],
-  "Peugeot": ["208", "308", "2008", "3008", "5008"],
-  "Renault": ["Clio", "Megane", "Captur", "Zoe"],
-  "Polestar": ["Polestar 2", "Polestar 3", "Polestar 4"]
+  BMW: ["3 Series", "5 Series", "i4", "X5", "X3", "iX3", "iX"],
+  Audi: ["A4", "A6", "Q4 e-tron", "Q5", "A3", "e-tron"],
+  Ford: ["Focus", "Fiesta", "Mondeo", "Kuga", "Mustang Mach-E", "Transit"],
+  Hyundai: ["Ioniq 5", "Ioniq 6", "Tucson", "Kona", "i30", "i20"],
+  Opel: ["Astra", "Corsa", "Insignia", "Mokka", "Grandland"],
+  Peugeot: ["208", "308", "2008", "3008", "5008"],
+  Renault: ["Clio", "Megane", "Captur", "Zoe"],
+  Polestar: ["Polestar 2", "Polestar 3", "Polestar 4"],
 };
 
 function shopUrl(q: string) {
@@ -84,19 +84,16 @@ function youtubeUrl(q: string) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 }
 function openExternal(e: React.MouseEvent<HTMLButtonElement> | undefined, url: string) {
-  // Prevent any form submissions, page reloads, or accordion collapses
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
 
-  // Create a temporary link element to trick the browser's blocker
   const link = document.createElement("a");
   link.href = url;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
-  
-  // Trigger the click and clean up
+
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -106,6 +103,7 @@ function DiagnosePage() {
   const { user } = Route.useRouteContext();
   const qc = useQueryClient();
   const { t, language, region, currency } = useLocale();
+  
   const profileQ = useQuery({
     queryKey: ["profile", user.id],
     queryFn: async () => {
@@ -116,13 +114,12 @@ function DiagnosePage() {
 
   const [year, setYear] = useState("");
   
-  // New States to manage select options and fallback custom text inputs
+  // Custom Select vs Free-text State Management
   const [selectedMake, setSelectedMake] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [customMake, setCustomMake] = useState("");
   const [customModel, setCustomModel] = useState("");
 
-  // Resolving final Make and Model strings dynamically
   const make = selectedMake === "other" ? customMake : selectedMake;
   const model = selectedModel === "other" ? customModel : selectedModel;
 
@@ -145,7 +142,6 @@ function DiagnosePage() {
     if (!p) return;
     if (!year && p.default_year) setYear(p.default_year);
     
-    // Set Make dropdown/input correctly based on profile
     if (p.default_make) {
       if (CAR_DATA[p.default_make]) {
         setSelectedMake(p.default_make);
@@ -155,7 +151,6 @@ function DiagnosePage() {
       }
     }
 
-    // Set Model dropdown/input correctly based on profile
     if (p.default_model) {
       const modelsForMake = p.default_make ? CAR_DATA[p.default_make] : [];
       if (modelsForMake?.includes(p.default_model)) {
@@ -196,8 +191,7 @@ function DiagnosePage() {
       if (data.vehicleImagePrompt) {
         genImg({ data: { prompt: data.vehicleImagePrompt } })
           .then((r) => setVehicleImg(r.dataUrl))
-          .catch(() => {
-          });
+          .catch(() => {});
       }
 
       try {
@@ -223,7 +217,7 @@ function DiagnosePage() {
       }
     },
     onError: (e: unknown) => {
-      const msg = e instanceof Error ? e.message : "Diagnosis failed.";
+      const msg = e instanceof Error ? e.message : t("diag.failed") || "Diagnosis failed.";
       toast.error(msg);
     },
   });
@@ -245,7 +239,7 @@ function DiagnosePage() {
       toast.error(error.message);
       return;
     }
-    toast.success("Saved to history");
+    toast.success(t("diag.savedHistory") || "Saved to history");
     qc.invalidateQueries({ queryKey: ["diagnoses"] });
   }
 
@@ -341,29 +335,29 @@ function DiagnosePage() {
             <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2018" />
           </Field>
 
-          {/* Make Select / Input Field */}
+          {/* Make Dropdown / Custom Input */}
           <Field label={t("diag.make")}>
             {selectedMake !== "other" ? (
               <select
                 value={selectedMake}
                 onChange={(e) => {
                   setSelectedMake(e.target.value);
-                  setSelectedModel(""); // Clear selected model on make shift
+                  setSelectedModel("");
                 }}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                <option value="">Select Make</option>
+                <option value="">{t("diag.selectMake") || "Select Make"}</option>
                 {Object.keys(CAR_DATA).map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
-                <option value="other">Other / Custom...</option>
+                <option value="other">{t("diag.otherCustom") || "Other / Custom..."}</option>
               </select>
             ) : (
               <div className="flex gap-2">
                 <Input
                   value={customMake}
                   onChange={(e) => setCustomMake(e.target.value)}
-                  placeholder="Enter Manufacturer"
+                  placeholder={t("diag.enterMake") || "Enter Manufacturer"}
                 />
                 <Button 
                   type="button" 
@@ -374,13 +368,13 @@ function DiagnosePage() {
                     setCustomMake("");
                   }}
                 >
-                  Reset
+                  {t("diag.reset") || "Reset"}
                 </Button>
               </div>
             )}
           </Field>
 
-          {/* Model Select / Input Field */}
+          {/* Model Dropdown / Custom Input */}
           <Field label={t("diag.model")}>
             {selectedMake !== "other" && selectedMake !== "" && selectedModel !== "other" ? (
               <select
@@ -388,11 +382,11 @@ function DiagnosePage() {
                 onChange={(e) => setSelectedModel(e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                <option value="">Select Model</option>
+                <option value="">{t("diag.selectModel") || "Select Model"}</option>
                 {(CAR_DATA[selectedMake] || []).map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
-                <option value="other">Other / Custom...</option>
+                <option value="other">{t("diag.otherCustom") || "Other / Custom..."}</option>
               </select>
             ) : (
               <div className="flex gap-2">
@@ -407,7 +401,7 @@ function DiagnosePage() {
                     }
                   }}
                   disabled={!selectedMake}
-                  placeholder={selectedMake ? "Enter Model" : "Select a Make first"}
+                  placeholder={selectedMake ? (t("diag.enterModel") || "Enter Model") : (t("diag.selectMakeFirst") || "Select Make First")}
                 />
                 {selectedModel === "other" && selectedMake !== "other" && (
                   <Button 
@@ -419,7 +413,7 @@ function DiagnosePage() {
                       setCustomModel("");
                     }}
                   >
-                    Reset
+                    {t("diag.reset") || "Reset"}
                   </Button>
                 )}
               </div>
