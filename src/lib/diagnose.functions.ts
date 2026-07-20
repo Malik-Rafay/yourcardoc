@@ -226,4 +226,4 @@ export const generateImage = createServerFn({ method: "POST" })
       console.warn("Fal.ai image generation failed. Using SVG fallback.", error);
       return { dataUrl: createPlaceholderIllustration(data.prompt) };
     }
-  });
+  })
