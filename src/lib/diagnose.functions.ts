@@ -195,7 +195,7 @@ export const generateImage = createServerFn({ method: "POST" })
       const cleanPrompt = data.prompt.replace(/[^a-zA-Z0-9\s,.-]/g, ""); 
       const enhancedPrompt = `${cleanPrompt}, highly detailed DSLR automotive photography, sharp focus, realistic metallic textures, garage workshop setting, no text overlays, no watermarks`;
 
-      const response = await fetch("[https://queue.fal.run/fal-ai/flux/schnell](https://queue.fal.run/fal-ai/flux/schnell)", {
+      const response = await fetch("https://queue.fal.run/fal-ai/flux/schnell", {
         method: "POST",
         headers: {
           "Authorization": `Key ${falKey}`,
