@@ -1,9 +1,11 @@
+import { useState, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { AppFooter } from "@/components/AppFooter";
 import { Button } from "@/components/ui/button";
 import { useT, useLocale, currencySymbol } from "@/lib/i18n";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/pricing")({
   head: () => ({
@@ -23,7 +25,23 @@ function PricingPage() {
   const sym = currencySymbol(currency);
   const navigate = useNavigate();
 
-  // Added 'id' to each tier so we know which button was clicked
+  // Track the logged-in user state via Supabase
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // 1. Fetch initial session on page load
+    supabase.auth.getSession().then(({ data }) => {
+      setUserId(data.session?.user.id ?? null);
+    });
+
+    // 2. Listen for auth changes (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user.id ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const TIERS = [
     {
       id: "free",
@@ -47,6 +65,7 @@ function PricingPage() {
         t("pricing.pro.f2"),
         t("pricing.pro.f3"),
         t("pricing.pro.f4"),
+        t("pricing.pro.f5"),
       ],
     },
     {
@@ -61,18 +80,29 @@ function PricingPage() {
         t("pricing.prem.f2"),
         t("pricing.prem.f3"),
         t("pricing.prem.f4"),
+        t("pricing.prem.f5"),
       ],
     },
   ];
 
-  // This function routes the user based on the button they clicked
-  const handleSubscribe = (planId: string) => {
+  const handleSubscribe = async (planId: string) => {
+    // 1. Free plan behavior
     if (planId === "free") {
-      navigate({ to: "/register" });
-    } else {
-      // Passes the plan as a search parameter: /register?plan=pro
-      navigate({ to: "/register", search: { plan: planId } });
+      navigate({ to: userId ? "/diagnose" : "/register" });
+      return;
     }
+
+    // 2. Logged Out behavior -> Send to registration page
+    if (!userId) {
+      navigate({ to: "/register", search: { plan: planId } });
+      return;
+    }
+
+    // 3. Logged In behavior -> Trigger payment checkout
+    console.log(`User ${userId} requested checkout for plan: ${planId}`);
+    
+    // Replace this console log with your checkout call, Supabase Edge Function, or Stripe redirect:
+    // e.g., navigate({ to: "/checkout", search: { plan: planId } });
   };
 
   return (
@@ -103,8 +133,7 @@ function PricingPage() {
                   <span className="font-display text-4xl font-bold">{tier.price}</span>
                   <span className="text-sm text-muted-foreground">/ {tier.period}</span>
                 </div>
-                
-                {/* Updated Button to use onClick handler instead of asChild <Link> */}
+
                 <Button
                   onClick={() => handleSubscribe(tier.id)}
                   className={`mt-6 w-full ${tier.highlight ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}`}
