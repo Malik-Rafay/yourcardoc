@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { AppFooter } from "@/components/AppFooter";
@@ -21,8 +21,12 @@ function PricingPage() {
   const t = useT();
   const { currency } = useLocale();
   const sym = currencySymbol(currency);
+  const navigate = useNavigate();
+
+  // Added 'id' to each tier so we know which button was clicked
   const TIERS = [
     {
+      id: "free",
       name: t("pricing.free"),
       price: `${sym}0`,
       period: t("pricing.per.forever"),
@@ -31,6 +35,7 @@ function PricingPage() {
       features: [t("pricing.free.f1"), t("pricing.free.f2"), t("pricing.free.f3")],
     },
     {
+      id: "pro",
       name: t("pricing.pro"),
       price: `${sym}9.99`,
       period: t("pricing.per.month"),
@@ -45,6 +50,7 @@ function PricingPage() {
       ],
     },
     {
+      id: "premium",
       name: t("pricing.prem"),
       price: `${sym}19.99`,
       period: t("pricing.per.month"),
@@ -58,6 +64,17 @@ function PricingPage() {
       ],
     },
   ];
+
+  // This function routes the user based on the button they clicked
+  const handleSubscribe = (planId: string) => {
+    if (planId === "free") {
+      navigate({ to: "/register" });
+    } else {
+      // Passes the plan as a search parameter: /register?plan=pro
+      navigate({ to: "/register", search: { plan: planId } });
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <AppHeader />
@@ -86,13 +103,16 @@ function PricingPage() {
                   <span className="font-display text-4xl font-bold">{tier.price}</span>
                   <span className="text-sm text-muted-foreground">/ {tier.period}</span>
                 </div>
+                
+                {/* Updated Button to use onClick handler instead of asChild <Link> */}
                 <Button
-                  asChild
+                  onClick={() => handleSubscribe(tier.id)}
                   className={`mt-6 w-full ${tier.highlight ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}`}
                   variant={tier.highlight ? "default" : "outline"}
                 >
-                  <Link to="/register">{tier.cta}</Link>
+                  {tier.cta}
                 </Button>
+
                 <ul className="mt-6 space-y-3">
                   {tier.features.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm">
