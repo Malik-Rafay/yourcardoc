@@ -14,6 +14,8 @@ const InputSchema = z.object({
   language: z.string().max(20).default("en"),
   region: z.string().max(20).default("EU"),
   currency: z.string().max(10).default("EUR"),
+  photoBase64: z.string().nullable().optional(),
+  audioBase64: z.string().nullable().optional(),
 });
 
 export type DiagStep = {
@@ -55,7 +57,14 @@ const LANG_NAMES: Record<string, string> = {
   fr: "French",
 };
 
-// Unified helper to guarantee we extract whichever key name is populated in Vercel/Local environment variables
+// Helper to strip data-url prefix (e.g. "data:image/jpeg;base64,") for raw base64 data
+function extractBase64Data(dataUrl: string): string {
+  if (dataUrl.includes(",")) {
+    return dataUrl.split(",")[1];
+  }
+  return dataUrl;
+}
+
 function getActiveApiKey(): string {
   const key = process.env.OPENAI_API_KEY || process.env.LOVABLE_API_KEY || process.env.VITE_OPENAI_API_KEY || process.env.VITE_LOVABLE_API_KEY;
   if (!key) {
@@ -90,10 +99,16 @@ export const runDiagnosis = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<DiagnosisResult> => {
     const key = getActiveApiKey();
     const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("gpt-4o-mini");
+    
+    // Use gpt-4o for multimodal processing
+    const modelName = (data.photoBase64 || data.audioBase64) ? "gpt-4o" : "gpt-4o-mini";
+    const model = gateway(modelName);
 
     const langName = LANG_NAMES[data.language] ?? "English";
-    const prompt = `You are an expert automotive mechanic AI. The user has a ${data.year} ${data.make} ${data.model} with ${data.mileage} km/miles. They describe these symptoms: "${data.symptoms}". Additional tags: ${data.tags.join(", ") || "none"}.
+    
+    const textPrompt = `You are an expert automotive mechanic AI. The user has a ${data.year} ${data.make} ${data.model} with ${data.mileage} km/miles. They describe these symptoms: "${data.symptoms}". Additional tags: ${data.tags.join(", ") || "none"}.
+${data.photoBase64 ? "- Note: An image of the car part/issue is attached. Examine it closely for visible wear, leaks, rust, or damage." : ""}
+${data.audioBase64 ? "- Note: An audio recording of the car sound is attached. Analyze any noticeable knock, squeak, rattle, or noise." : ""}
 
 IMPORTANT:
 - Respond in ${langName}. All human-readable strings must be in ${langName}.
@@ -122,14 +137,38 @@ Respond ONLY with valid JSON (no markdown, no code fences) matching this schema 
 - youtubeQueries: 3–5 distinct YouTube search queries that would surface helpful tutorials for THIS specific car and problem.
 - vehicleImagePrompt: A single descriptive sentence optimized for a high-fidelity camera shot: "A sharp, detailed DSLR automotive photograph of a ${data.year} ${data.make} ${data.model} parked in a clean modern workshop, realistic lighting, photorealistic, 8k resolution, metallic paint reflections."`;
 
-    let text: string;
-    try {
-      const res = await generateText({ model, prompt });
-      text = res.text;
-    } catch (err) {
+// Construct a type-safe multimodal prompt array
+const promptParts: Array<any> = [{ type: "text", text: textPrompt }];
+
+// Handle Image attachment
+if (data.photoBase64) {
+  promptParts.push({
+    type: "image",
+    image: data.photoBase64, // Base64 Data URL or HTTP URL
+  });
+}
+
+// Handle Audio attachment using standard AI SDK FilePart schema
+if (data.audioBase64) {
+  promptParts.push({
+    type: "file",
+    mediaType: "audio/webm",
+    data: extractBase64Data(data.audioBase64), // Pure base64 data without prefix
+  });
+}
+
+let text: string;
+try {
+  const res = await generateText({
+    model,
+    prompt: promptParts as any, // ✅ Pass as 'prompt' array instead of 'messages'
+  });
+  text = res.text;
+  } catch (err) {
       console.error("runDiagnosis generateText error:", err);
       throw new Error("AI generation failed. Check server logs for details.");
     }
+
     const cleaned = text
       .trim()
       .replace(/^```json\s*/i, "")
@@ -192,14 +231,11 @@ export const generateImage = createServerFn({ method: "POST" })
     }
 
     try {
-      // Clean up special characters from prompt
       const cleanPrompt = data.prompt.replace(/[^a-zA-Z0-9\s,.-]/g, ""); 
       const enhancedPrompt = `${cleanPrompt}, highly detailed DSLR automotive photography, sharp focus, realistic metallic textures, garage workshop setting, no text overlays, no watermarks`;
 
-      // Configure client credentials
       fal.config({ credentials: falKey });
 
-      // Use fal.subscribe to handle async queue polling
       const result: any = await fal.subscribe("fal-ai/flux/schnell", {
         input: {
           prompt: enhancedPrompt,
