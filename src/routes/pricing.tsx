@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { AppFooter } from "@/components/AppFooter";
 import { Button } from "@/components/ui/button";
@@ -27,16 +27,20 @@ function PricingPage() {
 
   // Track the logged-in user state via Supabase
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   useEffect(() => {
     // 1. Fetch initial session on page load
     supabase.auth.getSession().then(({ data }) => {
       setUserId(data.session?.user.id ?? null);
+      setUserEmail(data.session?.user.email ?? null);
     });
 
     // 2. Listen for auth changes (login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserId(session?.user.id ?? null);
+      setUserEmail(session?.user.email ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -98,11 +102,32 @@ function PricingPage() {
       return;
     }
 
-    // 3. Logged In behavior -> Trigger payment checkout
-    console.log(`User ${userId} requested checkout for plan: ${planId}`);
-    
-    // Replace this console log with your checkout call, Supabase Edge Function, or Stripe redirect:
-    // e.g., navigate({ to: "/checkout", search: { plan: planId } });
+    // 3. Logged In behavior -> Invoke Supabase Edge Function to get Stripe URL
+    try {
+      setLoadingPlan(planId);
+
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { 
+          planId, 
+          userId, 
+          userEmail 
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        // Redirect directly to Stripe Hosted Checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned.");
+      }
+    } catch (err: any) {
+      console.error("Checkout error:", err);
+      alert("Failed to start payment checkout. Please try again.");
+    } finally {
+      setLoadingPlan(null);
+    }
   };
 
   return (
@@ -136,10 +161,17 @@ function PricingPage() {
 
                 <Button
                   onClick={() => handleSubscribe(tier.id)}
+                  disabled={loadingPlan === tier.id}
                   className={`mt-6 w-full ${tier.highlight ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}`}
                   variant={tier.highlight ? "default" : "outline"}
                 >
-                  {tier.cta}
+                  {loadingPlan === tier.id ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Redirecting...
+                    </span>
+                  ) : (
+                    tier.cta
+                  )}
                 </Button>
 
                 <ul className="mt-6 space-y-3">
