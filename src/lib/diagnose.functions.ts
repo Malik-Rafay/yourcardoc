@@ -137,37 +137,44 @@ Respond ONLY with valid JSON (no markdown, no code fences) matching this schema 
 - youtubeQueries: 3–5 distinct YouTube search queries that would surface helpful tutorials for THIS specific car and problem.
 - vehicleImagePrompt: A single descriptive sentence optimized for a high-fidelity camera shot: "A sharp, detailed DSLR automotive photograph of a ${data.year} ${data.make} ${data.model} parked in a clean modern workshop, realistic lighting, photorealistic, 8k resolution, metallic paint reflections."`;
 
-// Construct a type-safe multimodal prompt array
-const promptParts: Array<any> = [{ type: "text", text: textPrompt }];
+// Construct prompt based on whether attachments are present
+let promptInput: string | Array<any>;
 
-// Handle Image attachment
-if (data.photoBase64) {
-  promptParts.push({
-    type: "image",
-    image: data.photoBase64, // Base64 Data URL or HTTP URL
-  });
-}
+if (data.photoBase64 || data.audioBase64) {
+  const parts: Array<any> = [{ type: "text", text: textPrompt }];
 
-// Handle Audio attachment using standard AI SDK FilePart schema
-if (data.audioBase64) {
-  promptParts.push({
-    type: "file",
-    mediaType: "audio/webm",
-    data: extractBase64Data(data.audioBase64), // Pure base64 data without prefix
-  });
+  if (data.photoBase64) {
+    parts.push({
+      type: "image",
+      image: data.photoBase64,
+    });
+  }
+
+  if (data.audioBase64) {
+    parts.push({
+      type: "file",
+      mediaType: "audio/webm",
+      data: extractBase64Data(data.audioBase64),
+    });
+  }
+
+  promptInput = parts;
+} else {
+  // Plain text string when no attachments are present
+  promptInput = textPrompt;
 }
 
 let text: string;
 try {
   const res = await generateText({
     model,
-    prompt: promptParts as any, // ✅ Pass as 'prompt' array instead of 'messages'
+    prompt: promptInput as any,
   });
   text = res.text;
-  } catch (err) {
-      console.error("runDiagnosis generateText error:", err);
-      throw new Error("AI generation failed. Check server logs for details.");
-    }
+} catch (err) {
+  console.error("runDiagnosis generateText error:", err);
+  throw new Error("AI generation failed. Check server logs for details.");
+}
 
     const cleaned = text
       .trim()
