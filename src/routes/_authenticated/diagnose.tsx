@@ -17,6 +17,9 @@ import {
   HelpCircle,
   LocateFixed,
   MapPin,
+  Lock,
+  Mic,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +43,7 @@ import {
 } from "@/lib/diagnose.functions";
 import { useLocale, currencySymbol } from "@/lib/i18n";
 import { toast } from "sonner";
+import { string } from "zod/v4";
 
 export const Route = createFileRoute("/_authenticated/diagnose")({
   head: () => ({ meta: [{ title: "Diagnose — AutoDoctor AI" }] }),
@@ -77,11 +81,11 @@ const CAR_DATA: Record<string, string[]> = {
   Polestar: ["Polestar 2", "Polestar 3", "Polestar 4"],
 };
 
-function shopUrl(q: string) {
-  return `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(q)}`;
+function shopUrl(q?: string) {
+  return `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(q || "")}`;
 }
-function youtubeUrl(q: string) {
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+function youtubeUrl(q?: string) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q || "")}`;
 }
 function openExternal(e: React.MouseEvent<HTMLButtonElement> | undefined, url: string) {
   if (e) {
@@ -103,7 +107,7 @@ function DiagnosePage() {
   const { user } = Route.useRouteContext();
   const qc = useQueryClient();
   const { t, language, region, currency } = useLocale();
-  
+
   const profileQ = useQuery({
     queryKey: ["profile", user.id],
     queryFn: async () => {
@@ -112,8 +116,13 @@ function DiagnosePage() {
     },
   });
 
+  // User Plan Flags
+  const plan = (profileQ.data as { plan?: string } | null)?.plan || "free";
+  const isPro = plan === "pro" || plan === "premium";
+  const isPremium = plan === "premium";
+
   const [year, setYear] = useState("");
-  
+
   // Custom Select vs Free-text State Management
   const [selectedMake, setSelectedMake] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -126,6 +135,11 @@ function DiagnosePage() {
   const [mileage, setMileage] = useState("");
   const [symptoms, setSymptoms] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  
+  // Tier-Gated Media Upload States
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+
   const [result, setResult] = useState<DiagnosisResult | null>(null);
   const [vehicleImg, setVehicleImg] = useState<string | null>(null);
   const [stepImgs, setStepImgs] = useState<Record<number, string>>({});
@@ -141,7 +155,7 @@ function DiagnosePage() {
     const p = profileQ.data;
     if (!p) return;
     if (!year && p.default_year) setYear(p.default_year);
-    
+
     if (p.default_make) {
       if (CAR_DATA[p.default_make]) {
         setSelectedMake(p.default_make);
@@ -165,15 +179,14 @@ function DiagnosePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileQ.data]);
 
-  // SOLUTION 1 IMPLEMENTATION: Standardized English search query for Google Maps
+  // Standardized English search query for Google Maps
   useEffect(() => {
     if (!result) return;
-    
+
     const carInfo = `${year} ${make} ${model}`.trim();
     const cleanDiagnosis = result.diagnosis.replace(/[^a-zA-Z0-9\s-]/g, " ").trim();
-    
-    // Construct a clean, standardized English search query that Google Maps understands globally
-    const query = carInfo 
+
+    const query = carInfo
       ? `auto repair shop for ${carInfo}`
       : `car repair shop ${cleanDiagnosis.slice(0, 30)}`.trim();
 
@@ -186,8 +199,31 @@ function DiagnosePage() {
 
   const mutation = useMutation({
     mutationFn: async () => {
+      // Optional: convert files to Base64/DataURL if your server function expects string data
+      let imageDataUrl: string | undefined;
+      let audioDataUrl: string | undefined;
+
+      if (isPro && imageFile) {
+        imageDataUrl = await fileToDataUrl(imageFile);
+      }
+      if (isPremium && audioFile) {
+        audioDataUrl = await fileToDataUrl(audioFile);
+      }
+
       return await diagnose({
-        data: { year, make, model, mileage, symptoms, tags, language, region, currency },
+        data: {
+          year,
+          make,
+          model,
+          mileage,
+          symptoms,
+          tags,
+          language,
+          region,
+          currency,
+          image: imageDataUrl,
+          audio: audioDataUrl,
+        },
       });
     },
     onSuccess: async (data) => {
@@ -195,7 +231,7 @@ function DiagnosePage() {
       setVehicleImg(null);
       setStepImgs({});
       setStepDetails({});
-      
+
       if (data.vehicleImagePrompt) {
         genImg({ data: { prompt: data.vehicleImagePrompt } })
           .then((r) => setVehicleImg(r.dataUrl))
@@ -211,7 +247,7 @@ function DiagnosePage() {
           mileage,
           symptoms,
           tags,
-          result: data as never,
+          result: data as any,
           severity: data.severity,
         });
 
@@ -240,7 +276,7 @@ function DiagnosePage() {
       mileage,
       symptoms,
       tags,
-      result: result as never,
+      result: result as any,
       severity: result.severity,
     });
     if (error) {
@@ -323,9 +359,14 @@ function DiagnosePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-      <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold">{t("diag.title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("diag.subtitle")}</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-bold">{t("diag.title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("diag.subtitle")}</p>
+        </div>
+        <Badge variant="outline" className="text-xs uppercase font-semibold px-3 py-1">
+          {plan} PLAN
+        </Badge>
       </div>
 
       <form
@@ -333,144 +374,203 @@ function DiagnosePage() {
           e.preventDefault();
           if (canSubmit) mutation.mutate();
         }}
-        className="rounded-2xl border border-border/60 bg-card p-6 print:hidden"
+        className="rounded-2xl border border-border/60 bg-card p-6 print:hidden space-y-6"
       >
-        <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-          <Car className="h-4 w-4" /> {t("diag.step1")}
-        </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label={t("diag.year")}>
-            <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2018" />
-          </Field>
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <Car className="h-4 w-4" /> {t("diag.step1")}
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label={t("diag.year")}>
+              <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2018" />
+            </Field>
 
-          {/* Make Dropdown / Custom Input */}
-          <Field label={t("diag.make")}>
-            {selectedMake !== "other" ? (
-              <select
-                value={selectedMake}
-                onChange={(e) => {
-                  setSelectedMake(e.target.value);
-                  setSelectedModel("");
-                }}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">{t("diag.selectMake") || "Select Make"}</option>
-                {Object.keys(CAR_DATA).map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-                <option value="other">{t("diag.otherCustom") || "Other / Custom..."}</option>
-              </select>
-            ) : (
-              <div className="flex gap-2">
-                <Input
-                  value={customMake}
-                  onChange={(e) => setCustomMake(e.target.value)}
-                  placeholder={t("diag.enterMake") || "Enter Manufacturer"}
-                />
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => {
-                    setSelectedMake("");
-                    setCustomMake("");
-                  }}
-                >
-                  {t("diag.reset") || "Reset"}
-                </Button>
-              </div>
-            )}
-          </Field>
-
-          {/* Model Dropdown / Custom Input */}
-          <Field label={t("diag.model")}>
-            {selectedMake !== "other" && selectedMake !== "" && selectedModel !== "other" ? (
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">{t("diag.selectModel") || "Select Model"}</option>
-                {(CAR_DATA[selectedMake] || []).map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-                <option value="other">{t("diag.otherCustom") || "Other / Custom..."}</option>
-              </select>
-            ) : (
-              <div className="flex gap-2">
-                <Input
-                  value={selectedMake === "other" ? customModel : (selectedModel === "other" ? customModel : "")}
+            {/* Make Dropdown / Custom Input */}
+            <Field label={t("diag.make")}>
+              {selectedMake !== "other" ? (
+                <select
+                  value={selectedMake}
                   onChange={(e) => {
-                    if (selectedMake === "other") {
-                      setCustomModel(e.target.value);
-                    } else {
-                      setSelectedModel("other");
-                      setCustomModel(e.target.value);
-                    }
+                    setSelectedMake(e.target.value);
+                    setSelectedModel("");
                   }}
-                  disabled={!selectedMake}
-                  placeholder={selectedMake ? (t("diag.enterModel") || "Enter Model") : (t("diag.selectMakeFirst") || "Select Make First")}
-                />
-                {selectedModel === "other" && selectedMake !== "other" && (
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">{t("diag.selectMake") || "Select Make"}</option>
+                  {Object.keys(CAR_DATA).map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                  <option value="other">{t("diag.otherCustom") || "Other / Custom..."}</option>
+                </select>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    value={customMake}
+                    onChange={(e) => setCustomMake(e.target.value)}
+                    placeholder={t("diag.enterMake") || "Enter Manufacturer"}
+                  />
                   <Button 
                     type="button" 
                     variant="ghost" 
                     size="sm"
                     onClick={() => {
-                      setSelectedModel("");
-                      setCustomModel("");
+                      setSelectedMake("");
+                      setCustomMake("");
                     }}
                   >
                     {t("diag.reset") || "Reset"}
                   </Button>
-                )}
-              </div>
-            )}
-          </Field>
+                </div>
+              )}
+            </Field>
 
-          <Field label={t("diag.mileage")}>
-            <Input
-              value={mileage}
-              onChange={(e) => setMileage(e.target.value)}
-              placeholder="120,000 km"
-            />
-          </Field>
-        </div>
-
-        <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-primary">
-          <ListChecks className="h-4 w-4" /> {t("diag.step2")}
-        </div>
-        <div className="mt-4">
-          <Label htmlFor="symptoms" className="sr-only">
-            {t("diag.step2")}
-          </Label>
-          <Textarea
-            id="symptoms"
-            value={symptoms}
-            onChange={(e) => setSymptoms(e.target.value)}
-            placeholder={t("diag.symptoms.placeholder")}
-            rows={5}
-            maxLength={2000}
-          />
-          <div className="mt-4 flex flex-wrap gap-2">
-            {TAG_KEYS.map(([id, key]) => {
-              const label = t(key);
-              const active = tags.includes(label);
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => toggleTag(label)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground"}`}
+            {/* Model Dropdown / Custom Input */}
+            <Field label={t("diag.model")}>
+              {selectedMake !== "other" && selectedMake !== "" && selectedModel !== "other" ? (
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  {label}
-                </button>
-              );
-            })}
+                  <option value="">{t("diag.selectModel") || "Select Model"}</option>
+                  {(CAR_DATA[selectedMake] || []).map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                  <option value="other">{t("diag.otherCustom") || "Other / Custom..."}</option>
+                </select>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    value={selectedMake === "other" ? customModel : (selectedModel === "other" ? customModel : "")}
+                    onChange={(e) => {
+                      if (selectedMake === "other") {
+                        setCustomModel(e.target.value);
+                      } else {
+                        setSelectedModel("other");
+                        setCustomModel(e.target.value);
+                      }
+                    }}
+                    disabled={!selectedMake}
+                    placeholder={selectedMake ? (t("diag.enterModel") || "Enter Model") : (t("diag.selectMakeFirst") || "Select Make First")}
+                  />
+                  {selectedModel === "other" && selectedMake !== "other" && (
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedModel("");
+                        setCustomModel("");
+                      }}
+                    >
+                      {t("diag.reset") || "Reset"}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </Field>
+
+            <Field label={t("diag.mileage")}>
+              <Input
+                value={mileage}
+                onChange={(e) => setMileage(e.target.value)}
+                placeholder="120,000 km"
+              />
+            </Field>
           </div>
         </div>
 
-        <div className="mt-8 flex justify-end">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <ListChecks className="h-4 w-4" /> {t("diag.step2")}
+          </div>
+          <div className="mt-4">
+            <Label htmlFor="symptoms" className="sr-only">
+              {t("diag.step2")}
+            </Label>
+            <Textarea
+              id="symptoms"
+              value={symptoms}
+              onChange={(e) => setSymptoms(e.target.value)}
+              placeholder={t("diag.symptoms.placeholder")}
+              rows={4}
+              maxLength={2000}
+            />
+            <div className="mt-4 flex flex-wrap gap-2">
+              {TAG_KEYS.map(([id, key]) => {
+                const label = t(key);
+                const active = tags.includes(label);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => toggleTag(label)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Tier-Gated Media Attachments */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Photo Upload (Pro & Premium) */}
+          <div className={`p-4 rounded-xl border transition-all ${!isPro ? "bg-muted/40 border-dashed opacity-75" : "bg-card"}`}>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm font-semibold flex items-center gap-1.5">
+                <Camera className="h-4 w-4 text-blue-500" /> Engine / Part Photo
+              </label>
+              {!isPro && (
+                <span className="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                  <Lock className="h-2.5 w-2.5" /> PRO
+                </span>
+              )}
+            </div>
+            <Input 
+              type="file" 
+              accept="image/*" 
+              disabled={!isPro} 
+              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+              className="text-xs cursor-pointer file:text-xs"
+            />
+            {!isPro && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Upgrade to Pro to attach photos of engine lights, leaks, or damaged parts.
+              </p>
+            )}
+          </div>
+
+          {/* Audio Upload (Premium Only) */}
+          <div className={`p-4 rounded-xl border transition-all ${!isPremium ? "bg-muted/40 border-dashed opacity-75" : "bg-card"}`}>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm font-semibold flex items-center gap-1.5">
+                <Mic className="h-4 w-4 text-purple-500" /> Engine Noise Audio
+              </label>
+              {!isPremium && (
+                <span className="text-[10px] bg-purple-500/20 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                  <Lock className="h-2.5 w-2.5" /> PREMIUM
+                </span>
+              )}
+            </div>
+            <Input 
+              type="file" 
+              accept="audio/*" 
+              disabled={!isPremium}
+              onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+              className="text-xs cursor-pointer file:text-xs"
+            />
+            {!isPremium && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Upgrade to Premium to upload sound recordings for AI frequency analysis.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2">
           <Button
             type="submit"
             disabled={!canSubmit}
@@ -785,6 +885,16 @@ function DiagnosePage() {
       )}
     </div>
   );
+}
+
+// Utility function to convert File uploads into base64 data URLs for server functions
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
