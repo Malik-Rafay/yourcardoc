@@ -221,8 +221,8 @@ function DiagnosePage() {
           language,
           region,
           currency,
-          image: imageDataUrl,
-          audio: audioDataUrl,
+          photoBase64: imageDataUrl,
+          audioBase64: audioDataUrl,
         },
       });
     },

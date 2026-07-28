@@ -153,7 +153,7 @@ if (data.photoBase64 || data.audioBase64) {
   if (data.audioBase64) {
     parts.push({
       type: "file",
-      mediaType: "audio/webm",
+      mimeType: "audio/webm",
       data: extractBase64Data(data.audioBase64),
     });
   }
