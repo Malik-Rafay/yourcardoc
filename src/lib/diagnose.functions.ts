@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { generateText } from "ai";
+import { generateText, CoreMessage } from "ai";
 import { z } from "zod";
 import { fal } from "@fal-ai/client";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
@@ -57,7 +57,7 @@ const LANG_NAMES: Record<string, string> = {
   fr: "French",
 };
 
-// Helper to strip data-url prefix (e.g. "data:image/jpeg;base64,") for raw base64 data
+// Helper to strip data-url prefix for raw base64 data if needed
 function extractBase64Data(dataUrl: string): string {
   if (dataUrl.includes(",")) {
     return dataUrl.split(",")[1];
@@ -66,7 +66,11 @@ function extractBase64Data(dataUrl: string): string {
 }
 
 function getActiveApiKey(): string {
-  const key = process.env.OPENAI_API_KEY || process.env.LOVABLE_API_KEY || process.env.VITE_OPENAI_API_KEY || process.env.VITE_LOVABLE_API_KEY;
+  const key =
+    process.env.OPENAI_API_KEY ||
+    process.env.LOVABLE_API_KEY ||
+    process.env.VITE_OPENAI_API_KEY ||
+    process.env.VITE_LOVABLE_API_KEY;
   if (!key) {
     console.error("AI Configuration Error: No API keys discovered in environment variables.");
     throw new Error("AI is not configured.");
@@ -99,13 +103,12 @@ export const runDiagnosis = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<DiagnosisResult> => {
     const key = getActiveApiKey();
     const gateway = createLovableAiGatewayProvider(key);
-    
-    // Use gpt-4o for multimodal processing
-    const modelName = (data.photoBase64 || data.audioBase64) ? "gpt-4o" : "gpt-4o-mini";
+
+    const modelName = data.photoBase64 || data.audioBase64 ? "gpt-4o" : "gpt-4o-mini";
     const model = gateway(modelName);
 
     const langName = LANG_NAMES[data.language] ?? "English";
-    
+
     const textPrompt = `You are an expert automotive mechanic AI. The user has a ${data.year} ${data.make} ${data.model} with ${data.mileage} km/miles. They describe these symptoms: "${data.symptoms}". Additional tags: ${data.tags.join(", ") || "none"}.
 ${data.photoBase64 ? "- Note: An image of the car part/issue is attached. Examine it closely for visible wear, leaks, rust, or damage." : ""}
 ${data.audioBase64 ? "- Note: An audio recording of the car sound is attached. Analyze any noticeable knock, squeak, rattle, or noise." : ""}
@@ -137,44 +140,50 @@ Respond ONLY with valid JSON (no markdown, no code fences) matching this schema 
 - youtubeQueries: 3–5 distinct YouTube search queries that would surface helpful tutorials for THIS specific car and problem.
 - vehicleImagePrompt: A single descriptive sentence optimized for a high-fidelity camera shot: "A sharp, detailed DSLR automotive photograph of a ${data.year} ${data.make} ${data.model} parked in a clean modern workshop, realistic lighting, photorealistic, 8k resolution, metallic paint reflections."`;
 
-// Construct prompt based on whether attachments are present
-let promptInput: string | Array<any>;
+    // 1. Construct prompt as content array when attachments are present, or string when text-only
+    let promptInput: any;
 
-if (data.photoBase64 || data.audioBase64) {
-  const parts: Array<any> = [{ type: "text", text: textPrompt }];
+    if (data.photoBase64 || data.audioBase64) {
+      const parts: Array<any> = [{ type: "text", text: textPrompt }];
 
-  if (data.photoBase64) {
-    parts.push({
-      type: "image",
-      image: data.photoBase64,
-    });
-  }
+      if (data.photoBase64) {
+        parts.push({
+          type: "image",
+          image: data.photoBase64,
+        });
+      }
 
-  if (data.audioBase64) {
-    parts.push({
-      type: "file",
-      mimeType: "audio/webm",
-      data: extractBase64Data(data.audioBase64),
-    });
-  }
+      if (data.audioBase64) {
+        parts.push({
+          type: "file",
+          mimeType: "audio/webm",
+          data: extractBase64Data(data.audioBase64),
+        });
+      }
 
-  promptInput = parts;
-} else {
-  // Plain text string when no attachments are present
-  promptInput = textPrompt;
-}
+      // If your SDK type definition expects messages under prompt, format as message array:
+      promptInput = [
+        {
+          role: "user",
+          content: parts,
+        },
+      ];
+    } else {
+      promptInput = textPrompt;
+    }
 
-let text: string;
-try {
-  const res = await generateText({
-    model,
-    prompt: promptInput as any,
-  });
-  text = res.text;
-} catch (err) {
-  console.error("runDiagnosis generateText error:", err);
-  throw new Error("AI generation failed. Check server logs for details.");
-}
+    let text: string;
+    try {
+      // 2. Pass promptInput to `prompt` instead of `messages`
+      const res = await generateText({
+        model,
+        prompt: promptInput,
+      });
+      text = res.text;
+    } catch (err) {
+      console.error("runDiagnosis generateText error:", err);
+      throw new Error("AI generation failed. Check server logs for details.");
+    }
 
     const cleaned = text
       .trim()
@@ -207,14 +216,14 @@ export const explainStep = createServerFn({ method: "POST" })
     const key = getActiveApiKey();
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("gpt-4o-mini");
-    
+
     const langName = LANG_NAMES[data.language] ?? "English";
     const prompt = `Vehicle: ${data.vehicle}. A user is stuck on this repair step:
 Title: ${data.stepTitle}
 Instruction: ${data.stepInstruction}
 
 Write a detailed, beginner-friendly walkthrough in ${langName} (5–10 short paragraphs) explaining exactly how to perform this step safely. Include tool handling, common mistakes, what success looks like, and what to do if something doesn't fit. Plain text only, no markdown.`;
-    
+
     let detailText: string;
     try {
       const res = await generateText({ model, prompt });
@@ -238,7 +247,7 @@ export const generateImage = createServerFn({ method: "POST" })
     }
 
     try {
-      const cleanPrompt = data.prompt.replace(/[^a-zA-Z0-9\s,.-]/g, ""); 
+      const cleanPrompt = data.prompt.replace(/[^a-zA-Z0-9\s,.-]/g, "");
       const enhancedPrompt = `${cleanPrompt}, highly detailed DSLR automotive photography, sharp focus, realistic metallic textures, garage workshop setting, no text overlays, no watermarks`;
 
       fal.config({ credentials: falKey });
