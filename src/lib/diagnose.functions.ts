@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { generateText, CoreMessage } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import { fal } from "@fal-ai/client";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
@@ -63,6 +63,26 @@ function extractBase64Data(dataUrl: string): string {
     return dataUrl.split(",")[1];
   }
   return dataUrl;
+}
+
+// Helper to format base64 image strings with appropriate MIME header
+function formatBase64Image(base64String: string): string {
+  if (base64String.startsWith("data:image/")) {
+    return base64String;
+  }
+
+  const rawData = extractBase64Data(base64String);
+  let mimeType = "image/jpeg"; // default fallback for JPG/JPEG
+
+  if (rawData.startsWith("/9j/")) {
+    mimeType = "image/jpeg"; // JPG magic bytes
+  } else if (rawData.startsWith("iVBORw0KGgo")) {
+    mimeType = "image/png"; // PNG magic bytes
+  } else if (rawData.startsWith("UklGR")) {
+    mimeType = "image/webp"; // WebP magic bytes
+  }
+
+  return `data:${mimeType};base64,${rawData}`;
 }
 
 function getActiveApiKey(): string {
@@ -140,44 +160,37 @@ Respond ONLY with valid JSON (no markdown, no code fences) matching this schema 
 - youtubeQueries: 3–5 distinct YouTube search queries that would surface helpful tutorials for THIS specific car and problem.
 - vehicleImagePrompt: A single descriptive sentence optimized for a high-fidelity camera shot: "A sharp, detailed DSLR automotive photograph of a ${data.year} ${data.make} ${data.model} parked in a clean modern workshop, realistic lighting, photorealistic, 8k resolution, metallic paint reflections."`;
 
-    // 1. Construct prompt as content array when attachments are present, or string when text-only
-    let promptInput: any;
+    // Construct user content parts
+    const contentParts: Array<any> = [{ type: "text", text: textPrompt }];
 
-    if (data.photoBase64 || data.audioBase64) {
-      const parts: Array<any> = [{ type: "text", text: textPrompt }];
+    if (data.photoBase64) {
+      const formattedImage = formatBase64Image(data.photoBase64);
+      contentParts.push({
+        type: "image",
+        image: formattedImage,
+      });
+    }
 
-      if (data.photoBase64) {
-        parts.push({
-          type: "image",
-          image: data.photoBase64,
-        });
-      }
-
-      if (data.audioBase64) {
-        parts.push({
-          type: "file",
-          mimeType: "audio/webm",
-          data: extractBase64Data(data.audioBase64),
-        });
-      }
-
-      // If your SDK type definition expects messages under prompt, format as message array:
-      promptInput = [
-        {
-          role: "user",
-          content: parts,
-        },
-      ];
-    } else {
-      promptInput = textPrompt;
+    if (data.audioBase64) {
+      contentParts.push({
+        type: "file",
+        mimeType: "audio/webm",
+        data: extractBase64Data(data.audioBase64),
+      });
     }
 
     let text: string;
     try {
-      // 2. Pass promptInput to `prompt` instead of `messages`
       const res = await generateText({
         model,
-        prompt: promptInput,
+        prompt: (data.photoBase64 || data.audioBase64)
+          ? ([
+              {
+                role: "user",
+                content: contentParts,
+              },
+            ] as any)
+          : textPrompt,
       });
       text = res.text;
     } catch (err) {
