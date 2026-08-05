@@ -24,22 +24,38 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setErrorMessage(null); // Clear previous errors on a new attempt
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
+
     console.log("Supabase login result:", { data, error });
+
     if (error) {
       console.error("Login error details", error);
-      return toast.error(error.message || JSON.stringify(error));
+      // Map Supabase error messages or fallback to default
+      const msg =
+        error.message === "Invalid login credentials"
+          ? "Invalid email or password. Please try again."
+          : error.message;
+
+      setErrorMessage(msg);
+      toast.error(msg); // Trigger toast as well
+      return;
     }
 
     if (!data?.session) {
       console.error("Login returned no session", data);
-      return toast.error("Sign-in did not return an active session. Check your credentials or verify your email.");
+      const msg = "Sign-in did not return an active session. Check your credentials or verify your email.";
+      setErrorMessage(msg);
+      toast.error(msg);
+      return;
     }
 
     toast.success(t("auth.welcomeBack"));
@@ -53,7 +69,15 @@ function LoginPage() {
         <div className="w-full max-w-md rounded-2xl border border-border/60 bg-card p-8">
           <h1 className="font-display text-2xl font-bold">{t("auth.login.h1")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("auth.login.sub")}</p>
+
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
+            {/* Inline Error Alert Container */}
+            {errorMessage && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm font-medium text-destructive">
+                {errorMessage}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">{t("auth.email")}</Label>
               <Input
@@ -61,7 +85,10 @@ function LoginPage() {
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (errorMessage) setErrorMessage(null); // Clear error when typing
+                }}
                 autoComplete="email"
               />
             </div>
@@ -77,7 +104,10 @@ function LoginPage() {
                 type="password"
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (errorMessage) setErrorMessage(null); // Clear error when typing
+                }}
                 autoComplete="current-password"
               />
             </div>
