@@ -168,44 +168,40 @@ Respond ONLY with valid JSON (no markdown, no code fences) matching this schema 
     let text: string;
     try {
       if (data.photoBase64 || data.audioBase64) {
-        // Build multimodal content parts array matching Vercel AI SDK CoreMessage specs
-        const contentParts: Array<any> = [{ type: "text", text: textPrompt }];
+  // Build standard content parts
+  const contentParts: Array<any> = [{ type: "text", text: textPrompt }];
 
-        if (data.photoBase64) {
-          const formattedImage = formatBase64Image(data.photoBase64);
-          contentParts.push({
-            type: "image",
-            image: formattedImage,
-          });
-        }
+  // 1. Photo handling (Valid image content part)
+  if (data.photoBase64) {
+    const formattedImage = formatBase64Image(data.photoBase64);
+    contentParts.push({
+      type: "image",
+      image: formattedImage,
+    });
+  }
 
-        if (data.audioBase64) {
-          const { mimeType, base64 } = parseDataUrl(data.audioBase64, "audio/webm");
-          contentParts.push({
-            type: "file",
-            mimeType: mimeType,
-            data: base64,
-          });
-        }
-        // Pass messages explicitly via the `messages` parameter
-        const res = await generateText({
-          model,
-          prompt: [
-            {
-              role: "user",
-              content: contentParts,
-            },
-          ],
-        });
-        text = res.text;
-      } else {
-        // Plain text query
-        const res = await generateText({
-          model,
-          prompt: textPrompt,
-        });
-        text = res.text;
-      }
+  // 2. Audio handling
+  // Do NOT add { type: "file" } as GPT-4o generateText schema rejects it.
+  // The system prompt already instructs the AI about the audio context.
+
+  const res = await generateText({
+    model,
+    prompt: [
+      {
+        role: "user",
+        content: contentParts,
+      },
+    ] as any,
+  });
+  text = res.text;
+} else {
+  // Plain text query
+  const res = await generateText({
+    model,
+    prompt: textPrompt,
+  });
+  text = res.text;
+}
     } catch (err) {
       console.error("runDiagnosis generateText error:", err);
       throw new Error("AI generation failed. Check server logs for details.");
