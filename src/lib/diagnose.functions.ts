@@ -57,32 +57,37 @@ const LANG_NAMES: Record<string, string> = {
   fr: "French",
 };
 
-// Helper to strip data-url prefix for raw base64 data if needed
-function extractBase64Data(dataUrl: string): string {
-  if (dataUrl.includes(",")) {
-    return dataUrl.split(",")[1];
+/** Utility to parse standard base64 data URLs into mimeType and raw base64 data */
+function parseDataUrl(dataUrl: string, fallbackMime: string) {
+  if (dataUrl.startsWith("data:")) {
+    const parts = dataUrl.split(",");
+    const mimeMatch = parts[0].match(/data:(.*?);base64/);
+    return {
+      mimeType: mimeMatch ? mimeMatch[1] : fallbackMime,
+      base64: parts[1] || "",
+    };
   }
-  return dataUrl;
+  return { mimeType: fallbackMime, base64: dataUrl };
 }
 
-// Helper to format base64 image strings with appropriate MIME header
+// Helper to format base64 image strings with appropriate MIME header for image parts
 function formatBase64Image(base64String: string): string {
   if (base64String.startsWith("data:image/")) {
     return base64String;
   }
 
-  const rawData = extractBase64Data(base64String);
+  const { base64 } = parseDataUrl(base64String, "image/jpeg");
   let mimeType = "image/jpeg"; // default fallback for JPG/JPEG
 
-  if (rawData.startsWith("/9j/")) {
+  if (base64.startsWith("/9j/")) {
     mimeType = "image/jpeg"; // JPG magic bytes
-  } else if (rawData.startsWith("iVBORw0KGgo")) {
+  } else if (base64.startsWith("iVBORw0KGgo")) {
     mimeType = "image/png"; // PNG magic bytes
-  } else if (rawData.startsWith("UklGR")) {
+  } else if (base64.startsWith("UklGR")) {
     mimeType = "image/webp"; // WebP magic bytes
   }
 
-  return `data:${mimeType};base64,${rawData}`;
+  return `data:${mimeType};base64,${base64}`;
 }
 
 function getActiveApiKey(): string {
@@ -160,39 +165,47 @@ Respond ONLY with valid JSON (no markdown, no code fences) matching this schema 
 - youtubeQueries: 3–5 distinct YouTube search queries that would surface helpful tutorials for THIS specific car and problem.
 - vehicleImagePrompt: A single descriptive sentence optimized for a high-fidelity camera shot: "A sharp, detailed DSLR automotive photograph of a ${data.year} ${data.make} ${data.model} parked in a clean modern workshop, realistic lighting, photorealistic, 8k resolution, metallic paint reflections."`;
 
-    // Construct user content parts
-    const contentParts: Array<any> = [{ type: "text", text: textPrompt }];
-
-    if (data.photoBase64) {
-      const formattedImage = formatBase64Image(data.photoBase64);
-      contentParts.push({
-        type: "image",
-        image: formattedImage,
-      });
-    }
-
-    if (data.audioBase64) {
-      contentParts.push({
-        type: "file",
-        mimeType: "audio/webm",
-        data: extractBase64Data(data.audioBase64),
-      });
-    }
-
     let text: string;
     try {
-      const res = await generateText({
-        model,
-        prompt: (data.photoBase64 || data.audioBase64)
-          ? ([
-              {
-                role: "user",
-                content: contentParts,
-              },
-            ] as any)
-          : textPrompt,
-      });
-      text = res.text;
+      if (data.photoBase64 || data.audioBase64) {
+        // Build multimodal content parts array matching Vercel AI SDK CoreMessage specs
+        const contentParts: Array<any> = [{ type: "text", text: textPrompt }];
+
+        if (data.photoBase64) {
+          const formattedImage = formatBase64Image(data.photoBase64);
+          contentParts.push({
+            type: "image",
+            image: formattedImage,
+          });
+        }
+
+        if (data.audioBase64) {
+          const { mimeType, base64 } = parseDataUrl(data.audioBase64, "audio/webm");
+          contentParts.push({
+            type: "file",
+            mimeType: mimeType,
+            data: base64,
+          });
+        }
+        // Pass messages explicitly via the `messages` parameter
+        const res = await generateText({
+          model,
+          prompt: [
+            {
+              role: "user",
+              content: contentParts,
+            },
+          ],
+        });
+        text = res.text;
+      } else {
+        // Plain text query
+        const res = await generateText({
+          model,
+          prompt: textPrompt,
+        });
+        text = res.text;
+      }
     } catch (err) {
       console.error("runDiagnosis generateText error:", err);
       throw new Error("AI generation failed. Check server logs for details.");
