@@ -20,6 +20,7 @@ import {
   Lock,
   Mic,
   Camera,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,8 +33,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // 👈 Integrated Tabs for Audio selection
 import { SeverityBadge } from "@/components/SeverityBadge";
-import { AudioRecorder } from "@/components/AudioRecorder"; // 👈 Integrated AudioRecorder component
+import { AudioRecorder } from "@/components/AudioRecorder";
 import { supabase } from "@/integrations/supabase/client";
 import {
   runDiagnosis,
@@ -148,7 +150,7 @@ function DiagnosePage() {
 
   // Tier-Gated Media Upload States
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [recordedAudioBase64, setRecordedAudioBase64] = useState<string | null>(null); // 👈 Base64 Audio State
+  const [recordedAudioBase64, setRecordedAudioBase64] = useState<string | null>(null); // Holds Audio Base64 (Upload or Record)
 
   const [result, setResult] = useState<DiagnosisResult | null>(null);
   const [vehicleImg, setVehicleImg] = useState<string | null>(null);
@@ -227,7 +229,7 @@ function DiagnosePage() {
           region,
           currency,
           photoBase64: imageDataUrl,
-          audioBase64: isPremium ? (recordedAudioBase64 ?? undefined) : undefined, // 👈 Sends recorded Base64 directly
+          audioBase64: isPremium ? (recordedAudioBase64 ?? undefined) : undefined,
         },
       });
     },
@@ -326,6 +328,21 @@ function DiagnosePage() {
       toast.error(e instanceof Error ? e.message : "Could not load detail");
     } finally {
       setStepDetailLoading((s) => ({ ...s, [idx]: false }));
+    }
+  }
+
+  // Converts uploaded audio file to Base64
+  async function handleAudioFileUpload(file: File | null) {
+    if (!file) {
+      setRecordedAudioBase64(null);
+      return;
+    }
+    try {
+      const base64 = await fileToDataUrl(file);
+      setRecordedAudioBase64(base64);
+      toast.success("Audio file attached successfully");
+    } catch {
+      toast.error("Failed to process audio file");
     }
   }
 
@@ -548,7 +565,7 @@ function DiagnosePage() {
             )}
           </div>
 
-          {/* Audio Recording (Premium Only) */}
+          {/* Audio Input: Record OR Upload (Premium Only) */}
           <div className={`p-4 rounded-xl border transition-all ${!isPremium ? "bg-muted/40 border-dashed opacity-75" : "bg-card"}`}>
             <div className="flex justify-between items-center mb-2">
               <label className="text-sm font-semibold flex items-center gap-1.5">
@@ -561,12 +578,38 @@ function DiagnosePage() {
               )}
             </div>
 
-            {/* Injected Audio Recorder Component */}
             {isPremium ? (
-              <AudioRecorder onAudioRecorded={(base64) => setRecordedAudioBase64(base64)} />
+              <Tabs defaultValue="record" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-3 h-8">
+                  <TabsTrigger value="record" className="text-xs flex items-center gap-1">
+                    <Mic className="h-3 w-3" /> Record Audio
+                  </TabsTrigger>
+                  <TabsTrigger value="upload" className="text-xs flex items-center gap-1">
+                    <Upload className="h-3 w-3" /> Upload Audio
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Record Option */}
+                <TabsContent value="record" className="m-0">
+                  <AudioRecorder onAudioRecorded={(base64) => setRecordedAudioBase64(base64)} />
+                </TabsContent>
+
+                {/* Upload Option */}
+                <TabsContent value="upload" className="m-0">
+                  <Input
+                    type="file"
+                    accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm"
+                    onChange={(e) => handleAudioFileUpload(e.target.files?.[0] || null)}
+                    className="text-xs cursor-pointer file:text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    Supports MP3, WAV, M4A, OGG, WEBM.
+                  </p>
+                </TabsContent>
+              </Tabs>
             ) : (
               <p className="text-xs text-muted-foreground mt-2">
-                Upgrade to Premium to record car sounds live for AI audio diagnosis.
+                Upgrade to Premium to record live car sounds or upload audio files for AI diagnosis.
               </p>
             )}
           </div>
