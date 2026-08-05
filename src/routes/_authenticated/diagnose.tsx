@@ -33,6 +33,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { SeverityBadge } from "@/components/SeverityBadge";
+import { AudioRecorder } from "@/components/AudioRecorder"; // 👈 Integrated AudioRecorder component
 import { supabase } from "@/integrations/supabase/client";
 import {
   runDiagnosis,
@@ -43,7 +44,6 @@ import {
 } from "@/lib/diagnose.functions";
 import { useLocale, currencySymbol } from "@/lib/i18n";
 import { toast } from "sonner";
-import { string } from "zod/v4";
 
 export const Route = createFileRoute("/_authenticated/diagnose")({
   head: () => ({ meta: [{ title: "Diagnose — AutoDoctor AI" }] }),
@@ -103,6 +103,16 @@ function openExternal(e: React.MouseEvent<HTMLButtonElement> | undefined, url: s
   document.body.removeChild(link);
 }
 
+// Utility function to convert File uploads into base64 data URLs for server functions
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
 function DiagnosePage() {
   const { user } = Route.useRouteContext();
   const qc = useQueryClient();
@@ -135,10 +145,10 @@ function DiagnosePage() {
   const [mileage, setMileage] = useState("");
   const [symptoms, setSymptoms] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  
+
   // Tier-Gated Media Upload States
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [recordedAudioBase64, setRecordedAudioBase64] = useState<string | null>(null); // 👈 Base64 Audio State
 
   const [result, setResult] = useState<DiagnosisResult | null>(null);
   const [vehicleImg, setVehicleImg] = useState<string | null>(null);
@@ -199,15 +209,10 @@ function DiagnosePage() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      // Optional: convert files to Base64/DataURL if your server function expects string data
       let imageDataUrl: string | undefined;
-      let audioDataUrl: string | undefined;
 
       if (isPro && imageFile) {
         imageDataUrl = await fileToDataUrl(imageFile);
-      }
-      if (isPremium && audioFile) {
-        audioDataUrl = await fileToDataUrl(audioFile);
       }
 
       return await diagnose({
@@ -222,7 +227,7 @@ function DiagnosePage() {
           region,
           currency,
           photoBase64: imageDataUrl,
-          audioBase64: audioDataUrl,
+          audioBase64: isPremium ? (recordedAudioBase64 ?? undefined) : undefined, // 👈 Sends recorded Base64 directly
         },
       });
     },
@@ -543,7 +548,7 @@ function DiagnosePage() {
             )}
           </div>
 
-          {/* Audio Upload (Premium Only) */}
+          {/* Audio Recording (Premium Only) */}
           <div className={`p-4 rounded-xl border transition-all ${!isPremium ? "bg-muted/40 border-dashed opacity-75" : "bg-card"}`}>
             <div className="flex justify-between items-center mb-2">
               <label className="text-sm font-semibold flex items-center gap-1.5">
@@ -555,16 +560,13 @@ function DiagnosePage() {
                 </span>
               )}
             </div>
-            <Input 
-              type="file" 
-              accept="audio/*" 
-              disabled={!isPremium}
-              onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
-              className="text-xs cursor-pointer file:text-xs"
-            />
-            {!isPremium && (
+
+            {/* Injected Audio Recorder Component */}
+            {isPremium ? (
+              <AudioRecorder onAudioRecorded={(base64) => setRecordedAudioBase64(base64)} />
+            ) : (
               <p className="text-xs text-muted-foreground mt-2">
-                Upgrade to Premium to upload sound recordings for AI frequency analysis.
+                Upgrade to Premium to record car sounds live for AI audio diagnosis.
               </p>
             )}
           </div>
@@ -885,16 +887,6 @@ function DiagnosePage() {
       )}
     </div>
   );
-}
-
-// Utility function to convert File uploads into base64 data URLs for server functions
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(file);
-  });
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
