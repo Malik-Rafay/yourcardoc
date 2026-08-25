@@ -11,7 +11,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({ meta: [{ title: "Set new password — AutoDoctor AI" }] }),
   component: ResetPage,
-});
+})
 
 function ResetPage() {
   const [password, setPassword] = useState("");
